@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>1983 Alphabet Wall — Interactive Miniature Diorama</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Warm / Cold Bokeh Backdrop -->
+  <div id="backdrop" aria-hidden="true">
+    <div class="bokeh b1"></div>
+    <div class="bokeh b2"></div>
+    <div class="bokeh b3"></div>
+  </div>
+
+  <!-- 3D Viewport -->
+  <canvas id="diorama-canvas"></canvas>
+
+  <!-- Minimal Loading Overlay -->
+  <div id="loader" role="status" aria-live="polite">
+    <div class="loader-inner">
+      <div class="loader-bulb"></div>
+      <p class="loader-title">CRAFTING MINIATURE</p>
+      <p class="loader-sub">Autumn 1983 • Scale 1:12</p>
+    </div>
+  </div>
+
+  <!-- HUD Overlay -->
+  <header class="hud-top">
+    <div class="plaque">
+      <span class="plaque-dot" id="dimension-dot"></span>
+      <span class="plaque-title">1983 LIVING ROOM DIORAMA</span>
+    </div>
+
+    <div class="message-readout" id="message-readout" aria-live="polite">
+      <span class="readout-label">WALL:</span>
+      <span class="readout-text" id="readout-text">—</span>
+    </div>
+  </header>
+
+  <!-- Unobtrusive Onboarding Hints (auto-fades after first interaction) -->
+  <div class="hint-banner" id="hint-banner">
+    <span>Tap the lights to spell</span>
+    <span class="hint-sep">•</span>
+    <span>Hold background for the other side</span>
+  </div>
+
+  <!-- Hold Progress Ring -->
+  <div id="hold-indicator" aria-hidden="true">
+    <svg viewBox="0 0 44 44">
+      <circle class="ring-bg" cx="22" cy="22" r="18"></circle>
+      <circle class="ring-fg" id="hold-ring-fg" cx="22" cy="22" r="18"></circle>
+    </svg>
+  </div>
+
+  <!-- Bottom Controls -->
+  <footer class="hud-bottom">
+    <button type="button" class="hud-btn" id="btn-demo" title="Play a nostalgic message on the wall">
+      <span class="btn-icon">✦</span>
+      <span>Spell "RUN"</span>
+    </button>
+
+    <button type="button" class="hud-btn" id="btn-clear" title="Turn off all lit alphabet bulbs" disabled>
+      <span class="btn-icon">✕</span>
+      <span>Clear Lights</span>
+    </button>
+
+    <button type="button" class="hud-btn hud-btn-alt" id="btn-dimension" aria-pressed="false" title="Toggle or hold to shift into the Other Side">
+      <span class="btn-icon" id="dimension-icon">☾</span>
+      <span id="dimension-label">The Other Side</span>
+    </button>
+  </footer>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
+
