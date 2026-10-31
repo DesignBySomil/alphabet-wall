@@ -1831,7 +1831,7 @@ let lastHeartbeatStep = -1;
 let baseCameraFov = 38;
 
 const warmFogColor = new THREE.Color(0x120c08);
-const coldFogColor = new THREE.Color(0x040910);
+const coldFogColor = new THREE.Color(0x0a1624);
 const warmLampColor = new THREE.Color(0xffa13d);
 const coldLampColor = new THREE.Color(0x2e6ea6);
 const warmSkyColor = new THREE.Color(0xffdca8);
@@ -1923,7 +1923,7 @@ function animate() {
   ambientLight.intensity = THREE.MathUtils.lerp(0.42, 0.78, otherSideProgress);
   wallpaperMat.color.lerpColors(warmWallTint, coldWallTint, otherSideProgress);
   sideWallpaperMat.color.copy(wallpaperMat.color);
-  decayWallMat.opacity = otherSideProgress * 0.82;
+  decayWallMat.opacity = otherSideProgress * 0.42;
 
   // Creeping 3D tendrils/vines growth across walls and floor
   vineMeshes.forEach((vm, idx) => {
@@ -1992,7 +1992,7 @@ function animate() {
     const localBlackout =
       otherSideProgress > 0.5 && Math.sin(elapsed * 14.0 + i * 2.7) > 0.82 ? 0.03 : 1.0;
     const coldSurge =
-      (0.22 +
+      (0.5 +
         0.75 * Math.pow(Math.max(0, Math.sin(elapsed * 9.2 + i * 1.67)), 6) +
         heartbeatPulse * 0.35) *
       blackoutFactor *
