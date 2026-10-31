@@ -285,7 +285,7 @@ function createWallpaperTexture(letterPositionsUV) {
       ctx.rotate(angle);
       ctx.scale(scaleX, scaleY);
 
-      const fontSize = 74 + (idx % 4) * 4;
+      const fontSize = 82 + (idx % 4) * 4;
       const fontSpec = `900 ${fontSize}px Georgia, "Times New Roman", serif`;
       ctx.font = fontSpec;
 
@@ -2088,7 +2088,7 @@ function fitCameraToWall() {
   const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
 
   // Required width to fit the full alphabet wall + wooden plinth with breathing room on 320px screens
-  const requiredWidth = 6.75;
+  const requiredWidth = aspect < 0.75 ? 5.5 : 6.75;
   const requiredHeight = 4.65;
 
   const distH = requiredWidth / 2 / Math.tan(hFovRad / 2);
