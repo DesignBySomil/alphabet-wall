@@ -600,7 +600,6 @@ const loaderEl = document.getElementById("loader");
 const readoutTextEl = document.getElementById("readout-text");
 const hintBannerEl = document.getElementById("hint-banner");
 const btnDemo = document.getElementById("btn-demo");
-const btnClear = document.getElementById("btn-clear");
 const btnDimension = document.getElementById("btn-dimension");
 const dimensionLabel = document.getElementById("dimension-label");
 const dimensionIcon = document.getElementById("dimension-icon");
@@ -1619,10 +1618,8 @@ function dismissHintBanner() {
 function updateMessageReadout() {
   if (spelledCharacters.length === 0) {
     readoutTextEl.textContent = "—";
-    btnClear.disabled = true;
   } else {
     readoutTextEl.textContent = spelledCharacters.join("");
-    btnClear.disabled = false;
   }
 }
 
@@ -1683,13 +1680,13 @@ function toggleOtherSide(forceState = null) {
   dismissHintBanner();
   isOtherSide = forceState !== null ? forceState : !isOtherSide;
   document.body.classList.toggle("other-side", isOtherSide);
+  document.documentElement.classList.toggle("other-side", isOtherSide);
   btnDimension.setAttribute("aria-pressed", String(isOtherSide));
   dimensionLabel.textContent = isOtherSide ? "Return Home" : "The Other Side";
   dimensionIcon.textContent = isOtherSide ? "☀" : "☾";
   audio.setDimensionAudio(isOtherSide);
 }
 
-btnClear.addEventListener("click", clearAllLitBulbs);
 btnDemo.addEventListener("click", () => playDemoPhrase("RUN"));
 btnDimension.addEventListener("click", () => toggleOtherSide());
 
@@ -2093,6 +2090,27 @@ function handleResize() {
     camera.updateProjectionMatrix();
   }
 }
+
+// Keep the fixed bokeh backdrop covering the visual viewport even when the page
+// is pinch-zoomed out (mobile browsers can ignore user-scalable=no), so no bare
+// background strips appear around it. The html background matches the backdrop
+// gradient's edge colour in each mode as a fallback for older engines.
+(function fitBackdropToVisualViewport() {
+  const backdropEl = document.getElementById("backdrop");
+  const vv = window.visualViewport;
+  if (!backdropEl || !vv) return;
+  backdropEl.style.right = "auto";
+  backdropEl.style.bottom = "auto";
+  function fitBackdrop() {
+    backdropEl.style.left = -vv.offsetLeft + "px";
+    backdropEl.style.top = -vv.offsetTop + "px";
+    backdropEl.style.width = vv.width + "px";
+    backdropEl.style.height = vv.height + "px";
+  }
+  vv.addEventListener("resize", fitBackdrop);
+  vv.addEventListener("scroll", fitBackdrop);
+  fitBackdrop();
+})();
 
 window.addEventListener("resize", handleResize);
 handleResize();
