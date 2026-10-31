@@ -15,9 +15,19 @@ body {
   height: 100%;
   overflow: hidden;
   touch-action: none;
-  background-color: #0b0806;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #f6e7d2;
+}
+
+/* Page base colour matches the backdrop gradient's edge so pinch-zooming out
+   never reveals a mismatched strip; follows the current dimension. */
+html {
+  background-color: #060403;
+  transition: background-color 1.8s ease;
+}
+
+html.other-side {
+  background-color: #020407;
 }
 
 /* Soft Bokeh Backdrop behind transparent WebGL canvas */
