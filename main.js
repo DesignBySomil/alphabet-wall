@@ -635,7 +635,7 @@ controls.enablePan = false;
 controls.minDistance = 4.4;
 controls.maxDistance = 15.5;
 controls.minPolarAngle = Math.PI * 0.16;
-controls.maxPolarAngle = Math.PI * 0.475; // Never dips under the wooden plinth
+controls.maxPolarAngle = Math.PI * 0.475; // Never dips below the room floor
 controls.minAzimuthAngle = -Math.PI * 0.36; // Prevents clipping behind walls
 controls.maxAzimuthAngle = Math.PI * 0.42;
 
@@ -650,41 +650,9 @@ const floorWoodTex = createWoodTexture("#52321b", "#331c0d", "#211107");
 floorWoodTex.repeat.set(4, 4);
 
 // ============================================================================
-// 4. COLLECTIBLE WOODEN PLINTH BASE, ROOM SHELL & WAINSCOTING
+// 4. ROOM SHELL & WAINSCOTING
 // ============================================================================
-function buildPlinthAndShell() {
-  const plinthMat = new THREE.MeshStandardMaterial({
-    map: darkWoodTex,
-    roughness: 0.36,
-    metalness: 0.08
-  });
-
-  // Tiered round dark-wood collector base
-  const baseBottom = new THREE.Mesh(new THREE.CylinderGeometry(4.35, 4.55, 0.26, 64), plinthMat);
-  baseBottom.position.y = -0.38;
-  baseBottom.receiveShadow = true;
-  dioramaGroup.add(baseBottom);
-
-  const baseBevel = new THREE.Mesh(new THREE.CylinderGeometry(4.05, 4.32, 0.18, 64), plinthMat);
-  baseBevel.position.y = -0.18;
-  baseBevel.receiveShadow = true;
-  dioramaGroup.add(baseBevel);
-
-  const baseTop = new THREE.Mesh(new THREE.CylinderGeometry(4.02, 4.05, 0.12, 64), plinthMat);
-  baseTop.position.y = -0.05;
-  baseTop.receiveShadow = true;
-  dioramaGroup.add(baseTop);
-
-  // Brass collector plaque on the front rim of the plinth
-  const brassMat = new THREE.MeshStandardMaterial({
-    color: 0xd4a84f,
-    roughness: 0.28,
-    metalness: 0.85
-  });
-  const plaqueMesh = new THREE.Mesh(new RoundedBoxGeometry(1.15, 0.16, 0.04, 2, 0.02), brassMat);
-  plaqueMesh.position.set(0, -0.22, 4.26);
-  plaqueMesh.rotation.x = -0.18;
-  dioramaGroup.add(plaqueMesh);
+function buildRoomShell() {
 
   // Hardwood floor slab
   const floorMat = new THREE.MeshStandardMaterial({
@@ -766,7 +734,7 @@ function buildPlinthAndShell() {
   dioramaGroup.add(leftCrown);
 }
 
-buildPlinthAndShell();
+buildRoomShell();
 
 // ============================================================================
 // 5. HERO FEATURE: THE ALPHABET WALL & STRING LIGHTS (A - Z)
@@ -1598,7 +1566,7 @@ const tvLight = new THREE.PointLight(0x7cbfff, 1.25, 4.2, 1.6);
 tvLight.position.set(1.42, 0.62, 0.42);
 dioramaGroup.add(tvLight);
 
-// Soft overhead gallery spot for the plinth & wall readability
+// Soft overhead gallery spot for wall readability
 const fillSpot = new THREE.SpotLight(0xffdfb0, 1.55, 15, Math.PI * 0.42, 0.7, 1.2);
 fillSpot.position.set(1.4, 5.4, 4.2);
 fillSpot.target.position.set(0, 1.45, -1.0);
@@ -2079,7 +2047,7 @@ function fitCameraToWall() {
 
   camera.aspect = aspect;
 
-  // Ensure the full 9.1-unit plinth & all 26 letters (A-Z) fit comfortably even at 320px portrait
+  // Ensure all 26 letters (A-Z) fit comfortably even at 320px portrait
   baseCameraFov = aspect < 0.75 ? 48 : aspect < 1.0 ? 43 : 36;
   camera.fov = baseCameraFov;
   camera.updateProjectionMatrix();
@@ -2087,7 +2055,7 @@ function fitCameraToWall() {
   const vFovRad = THREE.MathUtils.degToRad(baseCameraFov);
   const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
 
-  // Required width to fit the full alphabet wall + wooden plinth with breathing room on 320px screens
+  // Required width to fit the full alphabet wall with breathing room on 320px screens
   const requiredWidth = aspect < 0.75 ? 5.5 : 6.75;
   const requiredHeight = 4.65;
 
