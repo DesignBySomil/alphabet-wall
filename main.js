@@ -1835,9 +1835,9 @@ const coldFogColor = new THREE.Color(0x040910);
 const warmLampColor = new THREE.Color(0xffa13d);
 const coldLampColor = new THREE.Color(0x2e6ea6);
 const warmSkyColor = new THREE.Color(0xffdca8);
-const coldSkyColor = new THREE.Color(0x1e3c5c);
+const coldSkyColor = new THREE.Color(0x3a6288);
 const warmWallTint = new THREE.Color(0xffffff);
-const coldWallTint = new THREE.Color(0x465c70);
+const coldWallTint = new THREE.Color(0x6a8aa6);
 const warmParticleColor = new THREE.Color(0xffe4ad);
 const coldParticleColor = new THREE.Color(0xc2e9ff);
 const tempColor = new THREE.Color();
@@ -1920,6 +1920,7 @@ function animate() {
   // Atmosphere, wall discoloration & peeling grime overlay
   scene.fog.color.lerpColors(warmFogColor, coldFogColor, otherSideProgress);
   ambientLight.color.lerpColors(warmSkyColor, coldSkyColor, otherSideProgress);
+  ambientLight.intensity = THREE.MathUtils.lerp(0.42, 0.78, otherSideProgress);
   wallpaperMat.color.lerpColors(warmWallTint, coldWallTint, otherSideProgress);
   sideWallpaperMat.color.copy(wallpaperMat.color);
   decayWallMat.opacity = otherSideProgress * 0.82;
