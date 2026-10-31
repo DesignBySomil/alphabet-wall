@@ -3,7 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
 // ============================================================================
-// 1. PROCEDURAL WEB AUDIO SYNTHESIZER (Chimes, Switch Clicks & Other Side Drone)
+// 1. WEB AUDIO SYNTHESIZER (Chimes, Sub Drone, Heartbeat Thump & Relief Chord)
 // ============================================================================
 class DioramaAudio {
   constructor() {
@@ -11,9 +11,8 @@ class DioramaAudio {
     this.droneGain = null;
     this.droneOsc1 = null;
     this.droneOsc2 = null;
-    this.isMuted = false;
 
-    // Pentatonic-inflected scale frequencies for A-Z so every letter sounds musical
+    // Warm nostalgic pentatonic frequencies for A-Z
     this.scaleBase = [
       261.63, 293.66, 329.63, 392.00, 440.00,
       523.25, 587.33, 659.25, 783.99, 880.00,
@@ -42,14 +41,14 @@ class DioramaAudio {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(140, now);
+    filter.frequency.setValueAtTime(125, now);
 
     this.droneOsc1 = this.ctx.createOscillator();
     this.droneOsc2 = this.ctx.createOscillator();
     this.droneOsc1.type = "sawtooth";
     this.droneOsc2.type = "triangle";
-    this.droneOsc1.frequency.setValueAtTime(55, now); // A1 sub
-    this.droneOsc2.frequency.setValueAtTime(82.41, now); // E2 fifth
+    this.droneOsc1.frequency.setValueAtTime(51.91, now); // Ab1 ominous sub
+    this.droneOsc2.frequency.setValueAtTime(77.78, now); // Eb2 fifth
 
     this.droneOsc1.connect(filter);
     this.droneOsc2.connect(filter);
@@ -67,11 +66,9 @@ class DioramaAudio {
     const now = ctx.currentTime;
     const baseFreq = this.scaleBase[letterIndex % this.scaleBase.length];
     const octaveShift = letterIndex >= 13 ? 1.25 : 1.0;
-    // Slight detune in the Other Side
-    const detune = upsideDownFactor * (Math.sin(letterIndex * 3.7) * 18 - 12);
+    const detune = upsideDownFactor * (Math.sin(letterIndex * 3.7) * 22 - 14);
     const freq = (turningOn ? baseFreq * octaveShift : baseFreq * 0.75) + detune;
 
-    // Warm bell tone + harmonic overtone
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -84,17 +81,17 @@ class DioramaAudio {
 
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(upsideDownFactor > 0.5 ? 1100 : 2400, now);
+    filter.frequency.setValueAtTime(upsideDownFactor > 0.5 ? 980 : 2300, now);
 
-    const peakGain = turningOn ? 0.13 : 0.055;
-    const duration = turningOn ? 0.65 : 0.22;
+    const peakGain = turningOn ? 0.13 : 0.05;
+    const duration = turningOn ? 0.68 : 0.22;
 
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(peakGain, now + 0.018);
+    gain.gain.exponentialRampToValueAtTime(peakGain, now + 0.016);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
     const subGain = ctx.createGain();
-    subGain.gain.setValueAtTime(0.25, now);
+    subGain.gain.setValueAtTime(0.24, now);
 
     osc1.connect(filter);
     osc2.connect(subGain);
@@ -108,35 +105,85 @@ class DioramaAudio {
     osc2.stop(now + duration + 0.04);
   }
 
+  playHeartbeatThump(intensity = 1.0) {
+    if (!this.ctx || this.ctx.state !== "running") return;
+    const now = this.ctx.currentTime;
+
+    // Dual lub-dub low-frequency pulse
+    [0, 0.22].forEach((offset, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sine";
+      const startF = idx === 0 ? 64 : 54;
+      osc.frequency.setValueAtTime(startF, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(28, now + offset + 0.18);
+
+      const amp = (idx === 0 ? 0.09 : 0.06) * intensity;
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(amp, now + offset + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.21);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.24);
+    });
+  }
+
   setDimensionAudio(targetUpsideDown) {
     const ctx = this.ensureContext();
     if (!ctx || !this.droneGain) return;
     const now = ctx.currentTime;
 
-    // Subtle atmospheric swell during shift
-    const shimmerOsc = ctx.createOscillator();
-    const shimmerGain = ctx.createGain();
-    shimmerOsc.type = "sine";
-    shimmerOsc.frequency.setValueAtTime(targetUpsideDown ? 190 : 110, now);
-    shimmerOsc.frequency.exponentialRampToValueAtTime(targetUpsideDown ? 72 : 293.66, now + 1.4);
+    if (targetUpsideDown) {
+      // Descending eerie pitch bend into The Other Side
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(360, now);
 
-    shimmerGain.gain.setValueAtTime(0.0001, now);
-    shimmerGain.gain.exponentialRampToValueAtTime(0.07, now + 0.35);
-    shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
+      osc.frequency.setValueAtTime(185, now);
+      osc.frequency.exponentialRampToValueAtTime(52, now + 1.6);
 
-    shimmerOsc.connect(shimmerGain);
-    shimmerGain.connect(ctx.destination);
-    shimmerOsc.start(now);
-    shimmerOsc.stop(now + 1.55);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.065, now + 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.65);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.7);
+    } else {
+      // Warm major-seventh relief chord when returning home
+      const chord = [261.63, 329.63, 392.00, 493.88];
+      chord.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(f, now + i * 0.05);
+
+        gain.gain.setValueAtTime(0.0001, now + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.04, now + i * 0.05 + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.05 + 1.35);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.05);
+        osc.stop(now + i * 0.05 + 1.4);
+      });
+    }
 
     this.droneGain.gain.cancelScheduledValues(now);
     this.droneGain.gain.setValueAtTime(Math.max(0.0001, this.droneGain.gain.value), now);
-    this.droneGain.gain.exponentialRampToValueAtTime(targetUpsideDown ? 0.045 : 0.0001, now + 1.8);
+    this.droneGain.gain.exponentialRampToValueAtTime(targetUpsideDown ? 0.055 : 0.0001, now + 1.8);
   }
 }
 
 // ============================================================================
-// 2. PROCEDURAL TEXTURE GENERATORS
+// 2. PROCEDURAL CANVAS TEXTURE GENERATORS (Wallpaper, Wood, Sofa, Rug, Art)
 // ============================================================================
 function createWallpaperTexture(letterPositionsUV) {
   const canvas = document.createElement("canvas");
@@ -144,50 +191,80 @@ function createWallpaperTexture(letterPositionsUV) {
   canvas.height = 1024;
   const ctx = canvas.getContext("2d");
 
-  // Warm 1980s yellowed cream base
-  ctx.fillStyle = "#d9c7a3";
+  // Muted 1980s warm parchment-ochre base
+  ctx.fillStyle = "#d2be96";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Subtle vertical vintage stripes & tiny floral motif
-  const stripeW = 48;
+  // Subtle paper fiber grain
+  for (let i = 0; i < 900; i++) {
+    ctx.fillStyle = i % 2 === 0 ? "rgba(110, 82, 48, 0.04)" : "rgba(255, 244, 220, 0.04)";
+    const rx = (i * 73) % canvas.width;
+    const ry = (i * 41) % canvas.height;
+    ctx.fillRect(rx, ry, 18, 2);
+  }
+
+  // Alternating vintage stripes & muted botanical floral sprigs
+  const stripeW = 64;
   for (let x = 0; x < canvas.width; x += stripeW) {
-    ctx.fillStyle = x % (stripeW * 2) === 0 ? "rgba(176, 146, 102, 0.22)" : "rgba(235, 220, 190, 0.16)";
-    ctx.fillRect(x, 0, stripeW * 0.55, canvas.height);
+    ctx.fillStyle = "rgba(162, 132, 88, 0.24)";
+    ctx.fillRect(x, 0, stripeW * 0.46, canvas.height);
 
-    // Pinstripe
-    ctx.fillStyle = "rgba(138, 106, 70, 0.18)";
-    ctx.fillRect(x + stripeW * 0.72, 0, 2, canvas.height);
+    // Fine double-pinstripe
+    ctx.fillStyle = "rgba(128, 96, 62, 0.22)";
+    ctx.fillRect(x + stripeW * 0.62, 0, 2, canvas.height);
+    ctx.fillRect(x + stripeW * 0.72, 0, 1.5, canvas.height);
 
-    // Tiny vintage floral diamond dots
-    for (let y = 24; y < canvas.height; y += 64) {
-      const cx = x + stripeW * 0.27;
-      const cy = y + ((x / stripeW) % 2) * 32;
-      ctx.fillStyle = "rgba(155, 92, 68, 0.22)";
+    // Muted 1980s country floral motif along each column
+    for (let y = 28; y < canvas.height; y += 76) {
+      const cx = x + stripeW * 0.23;
+      const cy = y + ((x / stripeW) % 2) * 38;
+
+      // Stem & sage leaves
+      ctx.strokeStyle = "rgba(92, 112, 74, 0.34)";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
+      ctx.moveTo(cx, cy + 14);
+      ctx.quadraticCurveTo(cx + 4, cy, cx, cy - 10);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(96, 118, 78, 0.34)";
+      ctx.beginPath();
+      ctx.ellipse(cx - 6, cy + 4, 5, 2.5, -0.4, 0, Math.PI * 2);
+      ctx.ellipse(cx + 6, cy + 2, 5, 2.5, 0.4, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "rgba(110, 128, 88, 0.22)";
-      ctx.fillRect(cx - 7, cy - 1, 4, 2);
-      ctx.fillRect(cx + 3, cy - 1, 4, 2);
+      // 5-petal muted dusty-rose / rust blossom
+      const petalColor = ((x + y) / 4) % 2 === 0 ? "rgba(164, 86, 64, 0.36)" : "rgba(184, 128, 62, 0.36)";
+      ctx.fillStyle = petalColor;
+      for (let p = 0; p < 5; p++) {
+        const ang = (p * Math.PI * 2) / 5;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(ang) * 4.5, cy - 4 + Math.sin(ang) * 4.5, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Blossom center
+      ctx.fillStyle = "rgba(218, 182, 108, 0.48)";
+      ctx.beginPath();
+      ctx.arc(cx, cy - 4, 2.2, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
-  // Aged vignette & water-stain patina
+  // Warm aged corner patina vignette
   const grad = ctx.createRadialGradient(
     canvas.width * 0.5,
-    canvas.height * 0.45,
-    120,
+    canvas.height * 0.42,
+    140,
     canvas.width * 0.5,
     canvas.height * 0.5,
-    canvas.width * 0.65
+    canvas.width * 0.64
   );
-  grad.addColorStop(0, "rgba(255, 245, 220, 0)");
-  grad.addColorStop(1, "rgba(78, 56, 36, 0.34)");
+  grad.addColorStop(0, "rgba(255, 242, 215, 0)");
+  grad.addColorStop(1, "rgba(62, 42, 24, 0.42)");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Hand-painted Alphabet Letters (A-Z) beneath each bulb position
+  // Hand-Painted Alphabet Letters (A-Z) with serif-ish brush strokes, baseline wobble & paint drips
   if (letterPositionsUV && letterPositionsUV.length > 0) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -197,34 +274,48 @@ function createWallpaperTexture(letterPositionsUV) {
       const py = (1 - item.v) * canvas.height;
 
       ctx.save();
-      ctx.translate(px, py);
-      // Slight hand-painted imperfection in angle and scale
-      const angle = Math.sin(idx * 2.3) * 0.09;
-      const scaleX = 0.94 + Math.cos(idx * 1.7) * 0.08;
-      const scaleY = 0.95 + Math.sin(idx * 3.1) * 0.08;
+      // Slight hand-lettered baseline & horizontal jitter
+      const wobbleX = Math.sin(idx * 4.1) * 4;
+      const wobbleY = Math.cos(idx * 2.9) * 6;
+      ctx.translate(px + wobbleX, py + wobbleY);
+
+      const angle = Math.sin(idx * 2.3) * 0.11 + (idx % 3 === 0 ? -0.04 : 0.03);
+      const scaleX = 0.92 + Math.cos(idx * 1.7) * 0.11;
+      const scaleY = 0.94 + Math.sin(idx * 3.1) * 0.12;
       ctx.rotate(angle);
       ctx.scale(scaleX, scaleY);
 
-      // Dry-brush shadow / paint bleed
-      ctx.font = "900 72px 'Courier New', Georgia, serif";
-      ctx.fillStyle = "rgba(20, 16, 14, 0.22)";
-      ctx.fillText(item.char, 2, 4);
+      const fontSize = 74 + (idx % 4) * 4;
+      const fontSpec = `900 ${fontSize}px Georgia, "Times New Roman", serif`;
+      ctx.font = fontSpec;
 
-      // Main dark charcoal hand-brushed stroke
-      ctx.font = "bold 70px 'Trebuchet MS', 'Segoe UI', sans-serif";
-      ctx.fillStyle = "#1d1916";
+      // Subtle pigment halo / soak into wallpaper
+      ctx.fillStyle = "rgba(22, 17, 14, 0.18)";
+      ctx.fillText(item.char, 2.5, 3.5);
+
+      // Multi-pass offset strokes to mimic a loaded house-paint brush
+      ctx.fillStyle = "#171311";
       ctx.fillText(item.char, 0, 0);
+      ctx.fillText(item.char, -1.2, 0.8);
 
-      // Subtle bristle streak effect
-      ctx.strokeStyle = "#15110f";
-      ctx.lineWidth = 2.2;
-      ctx.strokeText(item.char, -0.8, 0.8);
+      ctx.strokeStyle = "#120e0c";
+      ctx.lineWidth = 2.6;
+      ctx.strokeText(item.char, 0.6, -0.6);
 
-      // Occasional tiny paint drip on a few letters for authenticity
-      if (idx % 4 === 1) {
-        ctx.fillStyle = "rgba(26, 20, 18, 0.72)";
+      // Dry-brush bristle streaks at letter bottom
+      ctx.fillStyle = "rgba(24, 19, 16, 0.78)";
+      for (let b = -2; b <= 2; b++) {
+        ctx.fillRect(b * 4, 20 + Math.abs(b) * 2, 1.6, 6 + ((idx + b) % 4) * 2);
+      }
+
+      // Authentic paint drips on select letters (A, E, H, L, Q, R, U, Y)
+      if (idx % 3 === 0 || item.char === "R" || item.char === "U" || item.char === "N") {
+        const dripX = ((idx % 5) - 2) * 5;
+        const dripLen = 14 + (idx % 4) * 7;
+        ctx.fillStyle = "rgba(20, 15, 13, 0.85)";
         ctx.beginPath();
-        ctx.ellipse(4, 28, 2.1, 7 + (idx % 3) * 3, 0, 0, Math.PI * 2);
+        ctx.fillRect(dripX - 1.1, 22, 2.2, dripLen);
+        ctx.arc(dripX, 22 + dripLen, 2.4, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
@@ -237,7 +328,49 @@ function createWallpaperTexture(letterPositionsUV) {
   return tex;
 }
 
-function createWoodTexture(baseHex = "#3b2314", streakHex = "#241309") {
+// Peeling / discolored water-damage & mold overlay that fades in during The Other Side
+function createDecayOverlayTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, 512, 256);
+
+  // Dark creeping damp stains from top & bottom edges
+  const topGrad = ctx.createLinearGradient(0, 0, 0, 120);
+  topGrad.addColorStop(0, "rgba(8, 16, 24, 0.88)");
+  topGrad.addColorStop(1, "rgba(12, 22, 32, 0)");
+  ctx.fillStyle = topGrad;
+  ctx.fillRect(0, 0, 512, 120);
+
+  const botGrad = ctx.createLinearGradient(0, 256, 0, 130);
+  botGrad.addColorStop(0, "rgba(6, 12, 18, 0.92)");
+  botGrad.addColorStop(1, "rgba(12, 22, 32, 0)");
+  ctx.fillStyle = botGrad;
+  ctx.fillRect(0, 130, 512, 126);
+
+  // Irregular peeling/blistered blotches & vertical cracks
+  for (let i = 0; i < 55; i++) {
+    const bx = (i * 89) % 512;
+    const by = (i * 53) % 256;
+    const rad = 14 + (i % 6) * 9;
+    const g = ctx.createRadialGradient(bx, by, 2, bx, by, rad);
+    g.addColorStop(0, "rgba(5, 10, 16, 0.65)");
+    g.addColorStop(0.6, "rgba(18, 32, 42, 0.35)");
+    g.addColorStop(1, "rgba(10, 20, 28, 0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(bx, by, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function createWoodTexture(baseHex = "#3b2314", streakHex = "#221107", knotHex = "#180b04") {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
@@ -246,13 +379,18 @@ function createWoodTexture(baseHex = "#3b2314", streakHex = "#241309") {
   ctx.fillStyle = baseHex;
   ctx.fillRect(0, 0, 512, 512);
 
-  for (let i = 0; i < 180; i++) {
-    ctx.fillStyle = streakHex;
-    ctx.globalAlpha = 0.06 + (i % 5) * 0.03;
-    const y = (i * 19) % 512;
-    const h = 2 + (i % 7) * 2;
-    ctx.fillRect(0, y, 512, h);
+  // Organic wood grain cathedral waves
+  for (let i = 0; i < 220; i++) {
+    ctx.strokeStyle = i % 3 === 0 ? knotHex : streakHex;
+    ctx.globalAlpha = 0.06 + (i % 5) * 0.032;
+    ctx.lineWidth = 1 + (i % 4);
+    const y = (i * 13) % 512;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.bezierCurveTo(170, y + Math.sin(i) * 14, 340, y - Math.cos(i) * 14, 512, y);
+    ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -267,15 +405,16 @@ function createRugTexture() {
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
 
-  // Warm rust/ochre woven base
-  ctx.fillStyle = "#7c3224";
+  // Rich woven burgundy-terracotta base
+  ctx.fillStyle = "#6e2b1f";
   ctx.fillRect(0, 0, 512, 512);
 
-  // Concentric vintage geometric borders
+  // Multi-band Anatolian / 1980s living room rug border
   const borders = [
-    { inset: 22, color: "#d6a85a", width: 12 },
-    { inset: 44, color: "#2b3945", width: 16 },
-    { inset: 72, color: "#b85d38", width: 8 }
+    { inset: 18, color: "#cfa258", width: 10 },
+    { inset: 34, color: "#263642", width: 18 },
+    { inset: 56, color: "#b55a35", width: 10 },
+    { inset: 70, color: "#d9b471", width: 4 }
   ];
   borders.forEach((b) => {
     ctx.strokeStyle = b.color;
@@ -283,30 +422,50 @@ function createRugTexture() {
     ctx.strokeRect(b.inset, b.inset, 512 - b.inset * 2, 512 - b.inset * 2);
   });
 
-  // Center medallion diamonds
-  ctx.fillStyle = "#d9b26f";
+  // Repeating geometric border ticks
+  ctx.fillStyle = "#e3c588";
+  for (let i = 40; i < 472; i += 24) {
+    ctx.fillRect(i, 30, 8, 8);
+    ctx.fillRect(i, 474, 8, 8);
+    ctx.fillRect(30, i, 8, 8);
+    ctx.fillRect(474, i, 8, 8);
+  }
+
+  // Central medallions
   for (let r = 0; r < 3; r++) {
     const cx = 256;
     const cy = 148 + r * 108;
+    ctx.fillStyle = "#d9b26f";
     ctx.beginPath();
-    ctx.moveTo(cx, cy - 38);
-    ctx.lineTo(cx + 52, cy);
-    ctx.lineTo(cx, cy + 38);
-    ctx.lineTo(cx - 52, cy);
+    ctx.moveTo(cx, cy - 42);
+    ctx.lineTo(cx + 58, cy);
+    ctx.lineTo(cx, cy + 42);
+    ctx.lineTo(cx - 58, cy);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = "#2b3945";
+    ctx.fillStyle = "#263642";
     ctx.beginPath();
-    ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+    ctx.moveTo(cx, cy - 24);
+    ctx.lineTo(cx + 32, cy);
+    ctx.lineTo(cx, cy + 24);
+    ctx.lineTo(cx - 32, cy);
+    ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = "#d9b26f";
+
+    ctx.fillStyle = "#b55a35";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // Subtle woven noise
-  ctx.fillStyle = "rgba(25, 15, 10, 0.14)";
+  // Woven cross-stitch texture
+  ctx.fillStyle = "rgba(20, 12, 8, 0.16)";
   for (let y = 0; y < 512; y += 4) {
     ctx.fillRect(0, y, 512, 1.5);
+  }
+  for (let x = 0; x < 512; x += 6) {
+    ctx.fillRect(x, 0, 1.5, 512);
   }
 
   const tex = new THREE.CanvasTexture(canvas);
@@ -314,30 +473,43 @@ function createRugTexture() {
   return tex;
 }
 
-function createFloralFabricTexture() {
+function createSofaStripedFabricTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
 
-  // Faded 1970s/80s mustard-beige upholstery
-  ctx.fillStyle = "#8c6d46";
+  // Warm oatmeal-mustard 1980s upholstery base
+  ctx.fillStyle = "#8f6f48";
   ctx.fillRect(0, 0, 256, 256);
 
-  const colors = ["#b85d3b", "#d49b4b", "#52694c", "#c9b18c"];
-  for (let y = 16; y < 256; y += 32) {
-    for (let x = 16; x < 256; x += 32) {
-      const ox = x + ((y / 32) % 2) * 14;
-      ctx.fillStyle = colors[(x + y) % colors.length];
-      ctx.beginPath();
-      ctx.arc(ox, y, 6, 0, Math.PI * 2);
-      ctx.fill();
+  // Classic 80s rust, ochre, dark-brown & cream woven stripes
+  const stripes = [
+    { x: 0, w: 28, c: "#785836" },
+    { x: 28, w: 10, c: "#a6482c" },
+    { x: 38, w: 8, c: "#d4a862" },
+    { x: 46, w: 18, c: "#4d3824" },
+    { x: 64, w: 10, c: "#c99b49" },
+    { x: 74, w: 32, c: "#876742" },
+    { x: 106, w: 12, c: "#5a6b4c" },
+    { x: 118, w: 10, c: "#d1b382" }
+  ];
 
-      ctx.fillStyle = "#483522";
-      ctx.beginPath();
-      ctx.arc(ox, y, 2.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
+  for (let offset = 0; offset < 256; offset += 128) {
+    stripes.forEach((s) => {
+      ctx.fillStyle = s.c;
+      ctx.fillRect(offset + s.x, 0, s.w, 256);
+    });
+  }
+
+  // Nubby tweed fabric weave slubs
+  for (let y = 0; y < 256; y += 3) {
+    ctx.fillStyle = y % 6 === 0 ? "rgba(255, 240, 210, 0.1)" : "rgba(25, 16, 10, 0.14)";
+    ctx.fillRect(0, y, 256, 1.5);
+  }
+  for (let x = 0; x < 256; x += 4) {
+    ctx.fillStyle = "rgba(30, 18, 10, 0.1)";
+    ctx.fillRect(x, 0, 1.5, 256);
   }
 
   const tex = new THREE.CanvasTexture(canvas);
@@ -348,8 +520,80 @@ function createFloralFabricTexture() {
   return tex;
 }
 
+function createFramedPictureTexture(variant = 0) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+
+  if (variant === 0) {
+    // Autumn pine lake landscape
+    const sky = ctx.createLinearGradient(0, 0, 0, 72);
+    sky.addColorStop(0, "#5c7d99");
+    sky.addColorStop(1, "#e3b478");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, 128, 72);
+
+    // Distant mountains
+    ctx.fillStyle = "#485266";
+    ctx.beginPath();
+    ctx.moveTo(0, 72);
+    ctx.lineTo(38, 38);
+    ctx.lineTo(78, 62);
+    ctx.lineTo(106, 42);
+    ctx.lineTo(128, 72);
+    ctx.fill();
+
+    // Lake & pine silhouettes
+    ctx.fillStyle = "#39566e";
+    ctx.fillRect(0, 72, 128, 56);
+    ctx.fillStyle = "#243829";
+    for (let tx = 12; tx < 120; tx += 22) {
+      ctx.beginPath();
+      ctx.moveTo(tx, 46);
+      ctx.lineTo(tx + 9, 78);
+      ctx.lineTo(tx - 9, 78);
+      ctx.fill();
+    }
+  } else if (variant === 1) {
+    // Warm family portrait silhouette
+    ctx.fillStyle = "#8a5a3c";
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = "#e0b882";
+    ctx.beginPath();
+    ctx.arc(46, 48, 14, 0, Math.PI * 2);
+    ctx.arc(82, 52, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#334d5c";
+    ctx.fillRect(28, 66, 36, 48);
+    ctx.fillStyle = "#a34635";
+    ctx.fillRect(66, 70, 32, 44);
+  } else {
+    // Botanical pressed fern illustration
+    ctx.fillStyle = "#dfd1b4";
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.strokeStyle = "#3d5939";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(64, 110);
+    ctx.quadraticCurveTo(60, 64, 68, 20);
+    ctx.stroke();
+    ctx.fillStyle = "#486b43";
+    for (let y = 30; y < 98; y += 12) {
+      ctx.beginPath();
+      ctx.ellipse(52, y, 11, 4, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(76, y + 4, 11, 4, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 // ============================================================================
-// 3. MAIN SCENE SETUP & MINIATURE ARCHITECTURE
+// 3. MAIN SCENE SETUP & MINIATURE CAMERA FRAMING
 // ============================================================================
 const canvasEl = document.getElementById("diorama-canvas");
 const loaderEl = document.getElementById("loader");
@@ -376,43 +620,42 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = 0.98;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x160f0b, 0.042);
+scene.fog = new THREE.FogExp2(0x120c08, 0.044);
 
-const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 60);
-camera.position.set(4.2, 4.1, 8.2);
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 65);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 1.35, -0.2);
+controls.target.set(0.05, 1.38, -0.35);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.enablePan = false;
-controls.minDistance = 4.6;
-controls.maxDistance = 12.2;
+controls.minDistance = 4.4;
+controls.maxDistance = 15.5;
 controls.minPolarAngle = Math.PI * 0.16;
-controls.maxPolarAngle = Math.PI * 0.475; // Never goes below the plinth
+controls.maxPolarAngle = Math.PI * 0.475; // Never dips under the wooden plinth
 controls.minAzimuthAngle = -Math.PI * 0.36; // Prevents clipping behind walls
 controls.maxAzimuthAngle = Math.PI * 0.42;
 
-// Master diorama group so it can gently breathe/float
+// Master diorama group
 const dioramaGroup = new THREE.Group();
 scene.add(dioramaGroup);
 
-// Shared textures
-const darkWoodTex = createWoodTexture("#2f1a0f", "#1a0d06");
-const warmWoodTex = createWoodTexture("#6e4326", "#472813");
-const floorWoodTex = createWoodTexture("#59371f", "#382010");
+// Shared wood textures
+const darkWoodTex = createWoodTexture("#2d180d", "#180b05", "#110703");
+const warmWoodTex = createWoodTexture("#693e22", "#432511", "#2b1608");
+const floorWoodTex = createWoodTexture("#52321b", "#331c0d", "#211107");
 floorWoodTex.repeat.set(4, 4);
 
 // ============================================================================
-// 4. COLLECTIBLE WOODEN PLINTH BASE & ROOM SHELL
+// 4. COLLECTIBLE WOODEN PLINTH BASE, ROOM SHELL & WAINSCOTING
 // ============================================================================
 function buildPlinthAndShell() {
   const plinthMat = new THREE.MeshStandardMaterial({
     map: darkWoodTex,
-    roughness: 0.38,
+    roughness: 0.36,
     metalness: 0.08
   });
 
@@ -432,7 +675,7 @@ function buildPlinthAndShell() {
   baseTop.receiveShadow = true;
   dioramaGroup.add(baseTop);
 
-  // Brass collector plate on the front rim of the plinth
+  // Brass collector plaque on the front rim of the plinth
   const brassMat = new THREE.MeshStandardMaterial({
     color: 0xd4a84f,
     roughness: 0.28,
@@ -443,7 +686,7 @@ function buildPlinthAndShell() {
   plaqueMesh.rotation.x = -0.18;
   dioramaGroup.add(plaqueMesh);
 
-  // Hardwood living room floor slab (cutaway diorama square with rounded corners)
+  // Hardwood floor slab
   const floorMat = new THREE.MeshStandardMaterial({
     map: floorWoodTex,
     roughness: 0.62,
@@ -455,41 +698,63 @@ function buildPlinthAndShell() {
   floorMesh.castShadow = true;
   dioramaGroup.add(floorMesh);
 
-  // Exterior cutaway wall casing (warm dark museum charcoal-brown)
+  // Exterior cutaway wall casing
   const casingMat = new THREE.MeshStandardMaterial({
-    color: 0x261c16,
-    roughness: 0.7
+    color: 0x221813,
+    roughness: 0.72
   });
 
-  // Back wall outer structural thickness
   const backWallOuter = new THREE.Mesh(new RoundedBoxGeometry(5.62, 3.25, 0.18, 3, 0.04), casingMat);
   backWallOuter.position.set(0, 1.68, -2.24);
   backWallOuter.castShadow = true;
   backWallOuter.receiveShadow = true;
   dioramaGroup.add(backWallOuter);
 
-  // Left wall outer structural thickness
   const leftWallOuter = new THREE.Mesh(new RoundedBoxGeometry(0.18, 3.25, 4.72, 3, 0.04), casingMat);
   leftWallOuter.position.set(-2.72, 1.68, 0.05);
   leftWallOuter.castShadow = true;
   leftWallOuter.receiveShadow = true;
   dioramaGroup.add(leftWallOuter);
 
-  // Wood wainscoting & baseboards
+  // Wood Wainscoting (lower wall paneling + chair rail + baseboards + crown molding)
   const trimMat = new THREE.MeshStandardMaterial({
     map: warmWoodTex,
-    roughness: 0.55
+    roughness: 0.52
   });
 
-  const backBaseboard = new THREE.Mesh(new THREE.BoxGeometry(5.42, 0.22, 0.04), trimMat);
-  backBaseboard.position.set(0.06, 0.25, -2.12);
-  backBaseboard.receiveShadow = true;
-  dioramaGroup.add(backBaseboard);
+  // Back wall wainscot panel & chair rail (up to y = 0.92)
+  const backWainscot = new THREE.Mesh(new THREE.BoxGeometry(5.42, 0.78, 0.03), trimMat);
+  backWainscot.position.set(0.06, 0.53, -2.125);
+  backWainscot.receiveShadow = true;
+  dioramaGroup.add(backWainscot);
 
-  const leftBaseboard = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 4.52), trimMat);
-  leftBaseboard.position.set(-2.6, 0.25, 0.12);
-  leftBaseboard.receiveShadow = true;
-  dioramaGroup.add(leftBaseboard);
+  const backChairRail = new THREE.Mesh(new THREE.BoxGeometry(5.44, 0.06, 0.055), trimMat);
+  backChairRail.position.set(0.06, 0.93, -2.115);
+  backChairRail.receiveShadow = true;
+  dioramaGroup.add(backChairRail);
+
+  // Left wall wainscot panel & chair rail
+  const leftWainscot = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.78, 4.52), trimMat);
+  leftWainscot.position.set(-2.605, 0.53, 0.12);
+  leftWainscot.receiveShadow = true;
+  dioramaGroup.add(leftWainscot);
+
+  const leftChairRail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.06, 4.54), trimMat);
+  leftChairRail.position.set(-2.595, 0.93, 0.12);
+  leftChairRail.receiveShadow = true;
+  dioramaGroup.add(leftChairRail);
+
+  // Recessed wainscot stiles for authentic miniature detail
+  for (let wx = -2.2; wx <= 2.4; wx += 0.65) {
+    const stile = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.68, 0.042), trimMat);
+    stile.position.set(wx, 0.53, -2.12);
+    dioramaGroup.add(stile);
+  }
+  for (let wz = -1.8; wz <= 2.1; wz += 0.65) {
+    const stileL = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.68, 0.05), trimMat);
+    stileL.position.set(-2.6, 0.53, wz);
+    dioramaGroup.add(stileL);
+  }
 
   // Top crown molding
   const backCrown = new THREE.Mesh(new THREE.BoxGeometry(5.48, 0.1, 0.06), trimMat);
@@ -506,44 +771,41 @@ buildPlinthAndShell();
 // ============================================================================
 // 5. HERO FEATURE: THE ALPHABET WALL & STRING LIGHTS (A - Z)
 // ============================================================================
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const ROWS = [
-  { chars: "ABCDEFGH".split(""), yBase: 2.66, sag: 0.13, xStart: -1.78, xEnd: 1.92 },
-  { chars: "IJKLMNOPQ".split(""), yBase: 2.13, sag: 0.15, xStart: -1.88, xEnd: 1.98 },
-  { chars: "RSTUVWXYZ".split(""), yBase: 1.60, sag: 0.13, xStart: -1.80, xEnd: 1.90 }
+  { chars: "ABCDEFGH".split(""), yBase: 2.72, sag: 0.14, xStart: -1.82, xEnd: 1.94 },
+  { chars: "IJKLMNOPQ".split(""), yBase: 2.15, sag: 0.16, xStart: -1.92, xEnd: 2.02 },
+  { chars: "RSTUVWXYZ".split(""), yBase: 1.58, sag: 0.14, xStart: -1.84, xEnd: 1.92 }
 ];
 
-// Classic multi-colored C7 vintage bulb tints (warm nostalgic glass)
+// Saturated vintage C9 Christmas bulb palette
 const BULB_PALETTE = [
-  0xffb84d, // Warm Amber
-  0xff5e4d, // Vintage Red-Orange
-  0x4cd98c, // Emerald Green
-  0x5ca8ff, // Classic Cobalt Blue
-  0xffe066  // Warm Yellow-White
+  0xffaa2b, // Rich Amber-Orange
+  0xff4738, // Vintage Ruby Red
+  0x38d97a, // Emerald Green
+  0x479dff, // Cobalt Blue
+  0xffe052  // Warm Sun Yellow
 ];
 
-const letterNodes = []; // Holds all 26 interactive letter/bulb states
+const letterNodes = [];
 const interactiveHitMeshes = [];
 const letterUVs = [];
 
-// Wall surface dimensions for UV mapping
 const WALL_WIDTH = 5.42;
 const WALL_HEIGHT = 3.08;
 const WALL_CENTER_X = 0.08;
 const WALL_CENTER_Y = 1.72;
 const WALL_Z = -2.135;
 
-// Precompute positions of all 26 bulbs and their painted letters underneath
 ROWS.forEach((row, rIdx) => {
   const count = row.chars.length;
   row.chars.forEach((char, cIdx) => {
     const t = count === 1 ? 0.5 : cIdx / (count - 1);
     const x = THREE.MathUtils.lerp(row.xStart, row.xEnd, t);
-    // Natural catenary sag + tiny organic jitter
+    // Natural catenary sag + slight uneven hand-hung droop
     const catenary = -Math.sin(t * Math.PI) * row.sag;
-    const jitterY = Math.sin(cIdx * 2.7 + rIdx * 1.9) * 0.015;
-    const bulbY = row.yBase + catenary + jitterY;
-    const letterY = bulbY - 0.19; // Painted letter sits right below each bulb
+    const unevenDroop = Math.sin(cIdx * 2.4 + rIdx * 1.7) * 0.024 + Math.cos(cIdx * 1.3) * 0.012;
+    const bulbY = row.yBase + catenary + unevenDroop;
+    const letterY = bulbY - 0.21;
 
     const u = (x - (WALL_CENTER_X - WALL_WIDTH / 2)) / WALL_WIDTH;
     const v = (letterY - (WALL_CENTER_Y - WALL_HEIGHT / 2)) / WALL_HEIGHT;
@@ -561,19 +823,19 @@ ROWS.forEach((row, rIdx) => {
   });
 });
 
-// Create high-res procedural wallpaper with all 26 hand-painted letters baked in
 const wallpaperTex = createWallpaperTexture(letterUVs);
-const sideWallpaperTex = createWallpaperTexture([]); // Left wall uses same wallpaper without letters
+const sideWallpaperTex = createWallpaperTexture([]);
+const decayOverlayTex = createDecayOverlayTexture();
 
 const wallpaperMat = new THREE.MeshStandardMaterial({
   map: wallpaperTex,
-  roughness: 0.86,
+  roughness: 0.88,
   metalness: 0.02
 });
 
 const sideWallpaperMat = new THREE.MeshStandardMaterial({
   map: sideWallpaperTex,
-  roughness: 0.86,
+  roughness: 0.88,
   metalness: 0.02
 });
 
@@ -588,102 +850,126 @@ leftWallFace.position.set(-2.615, WALL_CENTER_Y, 0.12);
 leftWallFace.receiveShadow = true;
 dioramaGroup.add(leftWallFace);
 
-// Create draped dark-green twisted cord across the 3 rows
+// Peeling/discolored decay overlay planes for The Other Side
+const decayWallMat = new THREE.MeshBasicMaterial({
+  map: decayOverlayTex,
+  transparent: true,
+  opacity: 0,
+  depthWrite: false
+});
+const backDecayPlane = new THREE.Mesh(new THREE.PlaneGeometry(WALL_WIDTH, WALL_HEIGHT), decayWallMat);
+backDecayPlane.position.set(WALL_CENTER_X, WALL_CENTER_Y, WALL_Z + 0.003);
+dioramaGroup.add(backDecayPlane);
+
+const leftDecayPlane = new THREE.Mesh(new THREE.PlaneGeometry(4.52, WALL_HEIGHT), decayWallMat);
+leftDecayPlane.rotation.y = Math.PI / 2;
+leftDecayPlane.position.set(-2.612, WALL_CENTER_Y, 0.12);
+dioramaGroup.add(leftDecayPlane);
+
+// Draped dark-green twisted cord with small wall nails & loose end loops
 const wireMat = new THREE.MeshStandardMaterial({
-  color: 0x16291c,
-  roughness: 0.65
+  color: 0x15281b,
+  roughness: 0.62
 });
 
 ROWS.forEach((row, rIdx) => {
   const curvePoints = [];
-  // Anchor nail on left
-  curvePoints.push(new THREE.Vector3(row.xStart - 0.25, row.yBase + 0.05, WALL_Z + 0.02));
+  curvePoints.push(new THREE.Vector3(row.xStart - 0.28, row.yBase + 0.06, WALL_Z + 0.018));
   const rowItems = letterUVs.filter((item) => item.rowIndex === rIdx);
-  rowItems.forEach((item) => {
-    curvePoints.push(new THREE.Vector3(item.x, item.bulbY + 0.055, WALL_Z + 0.032));
+  rowItems.forEach((item, idx) => {
+    const zJitter = (idx % 2 === 0 ? 0.036 : 0.028);
+    curvePoints.push(new THREE.Vector3(item.x, item.bulbY + 0.064, WALL_Z + zJitter));
   });
-  // Anchor nail on right
-  curvePoints.push(new THREE.Vector3(row.xEnd + 0.25, row.yBase + 0.04, WALL_Z + 0.02));
+  curvePoints.push(new THREE.Vector3(row.xEnd + 0.28, row.yBase + 0.05, WALL_Z + 0.018));
 
   const curve = new THREE.CatmullRomCurve3(curvePoints);
-  const wireGeo = new THREE.TubeGeometry(curve, 52, 0.011, 6, false);
+  const wireGeo = new THREE.TubeGeometry(curve, 64, 0.012, 7, false);
   const wireMesh = new THREE.Mesh(wireGeo, wireMat);
   wireMesh.castShadow = true;
   dioramaGroup.add(wireMesh);
 });
 
-// Shared geometries for sockets, C7 bulbs, and soft wall glow halos
-const socketGeo = new THREE.CylinderGeometry(0.018, 0.022, 0.042, 10);
-const socketMat = new THREE.MeshStandardMaterial({ color: 0x1a2e20, roughness: 0.55 });
+// Bigger, rounder C9-style vintage bulbs with ribbed socket & brass collar
+const socketGeo = new THREE.CylinderGeometry(0.022, 0.026, 0.048, 12);
+const socketMat = new THREE.MeshStandardMaterial({ color: 0x1a3021, roughness: 0.5 });
+const collarGeo = new THREE.CylinderGeometry(0.024, 0.024, 0.014, 12);
+const collarMat = new THREE.MeshStandardMaterial({ color: 0xc49a45, roughness: 0.35, metalness: 0.75 });
 
-const bulbGlassGeo = new THREE.SphereGeometry(0.036, 14, 12);
-bulbGlassGeo.scale(0.82, 1.38, 0.82); // Classic elongated C7 Christmas bulb profile
+const bulbGlassGeo = new THREE.SphereGeometry(0.048, 16, 14);
+bulbGlassGeo.scale(0.95, 1.24, 0.95); // Plump, rounder vintage C9 bulb shape
 
-// Radial soft glow sprite texture for lit bulbs on the wallpaper
 function createGlowTexture() {
   const c = document.createElement("canvas");
   c.width = 128;
   c.height = 128;
   const ctx = c.getContext("2d");
   const g = ctx.createRadialGradient(64, 64, 2, 64, 64, 62);
-  g.addColorStop(0, "rgba(255, 250, 225, 1)");
-  g.addColorStop(0.35, "rgba(255, 210, 130, 0.58)");
-  g.addColorStop(1, "rgba(255, 180, 80, 0)");
+  g.addColorStop(0, "rgba(255, 250, 230, 1)");
+  g.addColorStop(0.32, "rgba(255, 205, 120, 0.68)");
+  g.addColorStop(0.7, "rgba(255, 160, 60, 0.22)");
+  g.addColorStop(1, "rgba(255, 140, 40, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);
 }
 
 const glowSpriteTex = createGlowTexture();
-const glowPlaneGeo = new THREE.PlaneGeometry(0.46, 0.46);
-const hitBoxGeo = new THREE.BoxGeometry(0.34, 0.42, 0.22);
+const glowPlaneGeo = new THREE.PlaneGeometry(0.56, 0.56);
+const hitBoxGeo = new THREE.BoxGeometry(0.36, 0.44, 0.24);
 const hitBoxMat = new THREE.MeshBasicMaterial({ visible: false });
 
-// Single moveable PointLight that jumps to the most recently activated bulb for real 3D specular bounce
-const activeBulbLight = new THREE.PointLight(0xffcb6b, 0, 2.6, 1.8);
+// Moveable PointLight for active spelled bulb + subtle warm ambient string light bounce
+const activeBulbLight = new THREE.PointLight(0xffcb6b, 0, 3.2, 1.6);
 dioramaGroup.add(activeBulbLight);
+
+const wallStringGlowLight = new THREE.PointLight(0xffad52, 1.35, 4.8, 1.6);
+wallStringGlowLight.position.set(0.05, 2.15, -1.55);
+dioramaGroup.add(wallStringGlowLight);
 
 letterUVs.forEach((info, index) => {
   const baseColorHex = BULB_PALETTE[index % BULB_PALETTE.length];
   const warmColor = new THREE.Color(baseColorHex);
-  const coldColor = new THREE.Color(0x7be0ff);
+  const coldColor = new THREE.Color(index % 3 === 0 ? 0x8ae8ff : 0x4ca6ff);
 
   const bulbGroup = new THREE.Group();
-  bulbGroup.position.set(info.x, info.bulbY + 0.03, WALL_Z + 0.036);
-  // Slight natural dangle rotation
-  bulbGroup.rotation.z = Math.sin(index * 1.9) * 0.14;
-  bulbGroup.rotation.x = 0.12;
+  bulbGroup.position.set(info.x, info.bulbY + 0.036, WALL_Z + 0.038);
+  bulbGroup.rotation.z = Math.sin(index * 2.1) * 0.16;
+  bulbGroup.rotation.x = 0.14;
   dioramaGroup.add(bulbGroup);
 
   const socketMesh = new THREE.Mesh(socketGeo, socketMat);
   bulbGroup.add(socketMesh);
 
+  const collarMesh = new THREE.Mesh(collarGeo, collarMat);
+  collarMesh.position.y = -0.024;
+  bulbGroup.add(collarMesh);
+
   const bulbMat = new THREE.MeshStandardMaterial({
     color: warmColor,
     emissive: warmColor,
-    emissiveIntensity: 0.35,
-    roughness: 0.18,
-    metalness: 0.05
+    emissiveIntensity: 0.72,
+    roughness: 0.16,
+    metalness: 0.04
   });
 
   const bulbMesh = new THREE.Mesh(bulbGlassGeo, bulbMat);
-  bulbMesh.position.y = -0.044;
+  bulbMesh.position.y = -0.056;
   bulbGroup.add(bulbMesh);
 
-  // Wall bounce glow halo right behind the bulb & painted letter
+  // Warm bloom halo on wallpaper behind bulb and letter
   const haloMat = new THREE.MeshBasicMaterial({
     map: glowSpriteTex,
     color: warmColor,
     transparent: true,
-    opacity: 0.12,
+    opacity: 0.24,
     depthWrite: false,
     blending: THREE.AdditiveBlending
   });
   const haloMesh = new THREE.Mesh(glowPlaneGeo, haloMat);
-  haloMesh.position.set(info.x, info.bulbY - 0.05, WALL_Z + 0.008);
+  haloMesh.position.set(info.x, info.bulbY - 0.04, WALL_Z + 0.009);
   dioramaGroup.add(haloMesh);
 
-  // Invisible generous touch/click target covering both bulb and painted letter
+  // Generous invisible touch/click target
   const hitMesh = new THREE.Mesh(hitBoxGeo, hitBoxMat);
   hitMesh.position.set(info.x, info.bulbY - 0.08, WALL_Z + 0.06);
   hitMesh.userData = { letterIndex: index, char: info.char };
@@ -694,71 +980,69 @@ letterUVs.forEach((info, index) => {
     index,
     char: info.char,
     isLit: false,
-    pulseEnergy: 0, // Surges to 1 when tapped
+    pulseEnergy: 0,
     warmColor,
     coldColor,
     bulbMat,
     bulbMesh,
     haloMat,
     haloMesh,
-    worldPos: new THREE.Vector3(info.x, info.bulbY, WALL_Z + 0.14)
+    worldPos: new THREE.Vector3(info.x, info.bulbY, WALL_Z + 0.16)
   });
 });
 
 // ============================================================================
-// 6. 1980s LIVING ROOM FURNITURE & PROPS
+// 6. 1980s LIVING ROOM FURNITURE & SELECTIVE ERA PROPS
 // ============================================================================
 let crtStaticCtx = null;
 let crtStaticTex = null;
-let lampShadeMat = null;
+let floorLampShadeMat = null;
+let tableLampShadeMat = null;
 let crtScreenMat = null;
+const distortableProps = []; // Furniture/frames that subtly tilt/warp in The Other Side
 
 function buildLivingRoomProps() {
-  // 1. Patterned Vintage Area Rug
-  const rugTex = createRugTexture();
+  // 1. Detailed Patterned Vintage Area Rug
   const rugMat = new THREE.MeshStandardMaterial({
-    map: rugTex,
+    map: createRugTexture(),
     roughness: 0.92
   });
-  const rugMesh = new THREE.Mesh(new RoundedBoxGeometry(3.45, 0.025, 2.35, 2, 0.01), rugMat);
-  rugMesh.position.set(0.15, 0.145, 0.25);
+  const rugMesh = new THREE.Mesh(new RoundedBoxGeometry(3.5, 0.025, 2.4, 2, 0.01), rugMat);
+  rugMesh.position.set(0.15, 0.145, 0.28);
   rugMesh.receiveShadow = true;
   dioramaGroup.add(rugMesh);
 
-  // 2. Faded Floral Sofa (positioned below the alphabet wall)
+  // 2. Striped Woven 1980s Sofa with Throw Blanket & Cushions (below alphabet wall)
   const sofaGroup = new THREE.Group();
-  sofaGroup.position.set(0.15, 0.14, -1.42);
+  sofaGroup.position.set(0.12, 0.14, -1.42);
   dioramaGroup.add(sofaGroup);
 
   const sofaMat = new THREE.MeshStandardMaterial({
-    map: createFloralFabricTexture(),
-    roughness: 0.88
+    map: createSofaStripedFabricTexture(),
+    roughness: 0.86
   });
 
-  // Sofa base plinth
-  const sofaBase = new THREE.Mesh(new RoundedBoxGeometry(2.55, 0.26, 0.92, 4, 0.06), sofaMat);
+  const sofaBase = new THREE.Mesh(new RoundedBoxGeometry(2.56, 0.26, 0.92, 4, 0.06), sofaMat);
   sofaBase.position.y = 0.16;
   sofaBase.castShadow = true;
   sofaBase.receiveShadow = true;
   sofaGroup.add(sofaBase);
 
-  // 3 Seat cushions
   for (let i = -1; i <= 1; i++) {
-    const seatCushion = new THREE.Mesh(new RoundedBoxGeometry(0.74, 0.18, 0.78, 4, 0.06), sofaMat);
+    const seatCushion = new THREE.Mesh(new RoundedBoxGeometry(0.75, 0.18, 0.78, 4, 0.06), sofaMat);
     seatCushion.position.set(i * 0.76, 0.35, 0.04);
     seatCushion.castShadow = true;
     seatCushion.receiveShadow = true;
     sofaGroup.add(seatCushion);
 
-    const backCushion = new THREE.Mesh(new RoundedBoxGeometry(0.75, 0.56, 0.24, 4, 0.07), sofaMat);
-    backCushion.position.set(i * 0.76, 0.66, -0.32);
+    const backCushion = new THREE.Mesh(new RoundedBoxGeometry(0.76, 0.54, 0.24, 4, 0.07), sofaMat);
+    backCushion.position.set(i * 0.76, 0.65, -0.32);
     backCushion.rotation.x = -0.08;
     backCushion.castShadow = true;
     backCushion.receiveShadow = true;
     sofaGroup.add(backCushion);
   }
 
-  // Rolled armrests
   [-1.22, 1.22].forEach((ax) => {
     const arm = new THREE.Mesh(new RoundedBoxGeometry(0.24, 0.48, 0.94, 4, 0.09), sofaMat);
     arm.position.set(ax, 0.42, 0);
@@ -767,23 +1051,42 @@ function buildLivingRoomProps() {
     sofaGroup.add(arm);
   });
 
-  // Knitted throw blanket draped over right sofa arm
-  const blanketMat = new THREE.MeshStandardMaterial({ color: 0xa84232, roughness: 0.9 });
-  const blanket = new THREE.Mesh(new RoundedBoxGeometry(0.32, 0.36, 0.55, 3, 0.05), blanketMat);
-  blanket.position.set(1.21, 0.52, 0.08);
-  blanket.rotation.z = -0.12;
+  // Knitted throw blanket draped over right sofa back/arm
+  const blanketMat = new THREE.MeshStandardMaterial({ color: 0x9e3b2b, roughness: 0.9 });
+  const blanket = new THREE.Mesh(new RoundedBoxGeometry(0.36, 0.38, 0.58, 3, 0.05), blanketMat);
+  blanket.position.set(1.18, 0.54, 0.06);
+  blanket.rotation.z = -0.14;
   blanket.castShadow = true;
   sofaGroup.add(blanket);
 
-  // 3. Worn Olive-Mustard Armchair (angled on the left)
+  // Two decorative throw pillows on the sofa
+  const pillow1 = new THREE.Mesh(
+    new RoundedBoxGeometry(0.34, 0.32, 0.14, 3, 0.05),
+    new THREE.MeshStandardMaterial({ color: 0xc98a38, roughness: 0.85 })
+  );
+  pillow1.position.set(-0.88, 0.56, -0.08);
+  pillow1.rotation.set(-0.15, 0.35, -0.2);
+  pillow1.castShadow = true;
+  sofaGroup.add(pillow1);
+
+  const pillow2 = new THREE.Mesh(
+    new RoundedBoxGeometry(0.32, 0.3, 0.14, 3, 0.05),
+    new THREE.MeshStandardMaterial({ color: 0x3f6152, roughness: 0.85 })
+  );
+  pillow2.position.set(0.84, 0.55, -0.06);
+  pillow2.rotation.set(-0.12, -0.4, 0.18);
+  pillow2.castShadow = true;
+  sofaGroup.add(pillow2);
+
+  // 3. Worn Corduroy Armchair (left side)
   const chairGroup = new THREE.Group();
-  chairGroup.position.set(-1.68, 0.14, 0.15);
-  chairGroup.rotation.y = Math.PI * 0.34;
+  chairGroup.position.set(-1.68, 0.14, 0.25);
+  chairGroup.rotation.y = Math.PI * 0.32;
   dioramaGroup.add(chairGroup);
 
   const chairMat = new THREE.MeshStandardMaterial({
-    color: 0x6d6a3e,
-    roughness: 0.85
+    color: 0x6b663b,
+    roughness: 0.86
   });
   const chairBase = new THREE.Mesh(new RoundedBoxGeometry(0.96, 0.28, 0.92, 4, 0.06), chairMat);
   chairBase.position.y = 0.18;
@@ -809,26 +1112,26 @@ function buildLivingRoomProps() {
     chairGroup.add(cArm);
   });
 
-  // 4. Wooden Sideboard Cabinet with Vintage Rotary Phone (against left wall)
+  // 4. Wooden Sideboard Cabinet with Rotary Phone AND Shaded Table Lamp (left wall)
   const sideboardGroup = new THREE.Group();
-  sideboardGroup.position.set(-2.15, 0.14, -1.25);
+  sideboardGroup.position.set(-2.15, 0.14, -1.18);
   sideboardGroup.rotation.y = Math.PI / 2;
   dioramaGroup.add(sideboardGroup);
 
   const cabinetMat = new THREE.MeshStandardMaterial({
     map: warmWoodTex,
-    roughness: 0.48
+    roughness: 0.46
   });
-  const cabinetBody = new THREE.Mesh(new RoundedBoxGeometry(1.12, 0.68, 0.56, 3, 0.03), cabinetMat);
+  const cabinetBody = new THREE.Mesh(new RoundedBoxGeometry(1.22, 0.68, 0.56, 3, 0.03), cabinetMat);
   cabinetBody.position.y = 0.42;
   cabinetBody.castShadow = true;
   cabinetBody.receiveShadow = true;
   sideboardGroup.add(cabinetBody);
 
-  // Rotary Telephone on top of the sideboard
+  // Rotary Telephone on the back end of the sideboard
   const phoneGroup = new THREE.Group();
-  phoneGroup.position.set(0.05, 0.77, 0);
-  phoneGroup.rotation.y = 0.25;
+  phoneGroup.position.set(-0.28, 0.77, 0.02);
+  phoneGroup.rotation.y = 0.28;
   sideboardGroup.add(phoneGroup);
 
   const phoneMat = new THREE.MeshStandardMaterial({
@@ -841,7 +1144,6 @@ function buildLivingRoomProps() {
   phoneBase.castShadow = true;
   phoneGroup.add(phoneBase);
 
-  // Rotary dial wheel
   const dialWheel = new THREE.Mesh(
     new THREE.CylinderGeometry(0.065, 0.065, 0.015, 16),
     new THREE.MeshStandardMaterial({ color: 0xe8dec8, roughness: 0.4 })
@@ -850,7 +1152,6 @@ function buildLivingRoomProps() {
   dialWheel.rotation.x = 0.45;
   phoneGroup.add(dialWheel);
 
-  // Handset resting on cradle
   const handsetBar = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.045, 0.055, 3, 0.02), phoneMat);
   handsetBar.position.set(0, 0.135, -0.02);
   phoneGroup.add(handsetBar);
@@ -861,9 +1162,34 @@ function buildLivingRoomProps() {
     phoneGroup.add(earCap);
   });
 
-  // 5. Floor Lamp with Warm Glowing Pleated Shade (right of the sofa)
+  // Ceramic Shaded Table Lamp on the front end of the sideboard (far left of alphabet wall)
+  const tableLampGroup = new THREE.Group();
+  tableLampGroup.position.set(0.32, 0.76, 0);
+  sideboardGroup.add(tableLampGroup);
+
+  const ceramicBase = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 14, 12),
+    new THREE.MeshStandardMaterial({ color: 0x9c5a34, roughness: 0.35 })
+  );
+  ceramicBase.scale.set(1, 1.35, 1);
+  ceramicBase.position.y = 0.15;
+  ceramicBase.castShadow = true;
+  tableLampGroup.add(ceramicBase);
+
+  tableLampShadeMat = new THREE.MeshStandardMaterial({
+    color: 0xf5dcb0,
+    emissive: 0xff9b38,
+    emissiveIntensity: 0.65,
+    roughness: 0.7,
+    side: THREE.DoubleSide
+  });
+  const tShade = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, 0.26, 20, 1, true), tableLampShadeMat);
+  tShade.position.y = 0.38;
+  tableLampGroup.add(tShade);
+
+  // 5. Repositioned Floor Lamp in Front-Left Corner (NEVER blocks any alphabet letter or bulb!)
   const lampGroup = new THREE.Group();
-  lampGroup.position.set(1.88, 0.14, -1.48);
+  lampGroup.position.set(-2.12, 0.14, 1.38);
   dioramaGroup.add(lampGroup);
 
   const brassPoleMat = new THREE.MeshStandardMaterial({
@@ -876,36 +1202,43 @@ function buildLivingRoomProps() {
   lampBase.castShadow = true;
   lampGroup.add(lampBase);
 
-  const lampPole = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.035, 1.82, 12), brassPoleMat);
-  lampPole.position.y = 0.94;
+  const lampPole = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.035, 1.72, 12), brassPoleMat);
+  lampPole.position.y = 0.88;
   lampPole.castShadow = true;
   lampGroup.add(lampPole);
 
-  lampShadeMat = new THREE.MeshStandardMaterial({
+  floorLampShadeMat = new THREE.MeshStandardMaterial({
     color: 0xf7dca6,
     emissive: 0xff9d3b,
-    emissiveIntensity: 0.85,
+    emissiveIntensity: 0.75,
     roughness: 0.65,
     side: THREE.DoubleSide
   });
-  const lampShade = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.38, 0.46, 24, 1, true), lampShadeMat);
-  lampShade.position.y = 1.82;
+  const lampShade = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.36, 0.44, 24, 1, true), floorLampShadeMat);
+  lampShade.position.y = 1.72;
   lampShade.castShadow = true;
   lampGroup.add(lampShade);
 
-  // 6. Boxy 1980s Wood-Cabinet CRT Television with Animated Static
+  // 6. Boxy 1980s Wood-Cabinet CRT Television with Animated Static, Knobs & Antenna
   const tvGroup = new THREE.Group();
-  tvGroup.position.set(1.75, 0.14, 0.68);
-  tvGroup.rotation.y = -Math.PI * 0.68;
+  tvGroup.position.set(1.78, 0.14, 0.72);
+  tvGroup.rotation.y = -Math.PI * 0.72;
   dioramaGroup.add(tvGroup);
 
-  const tvCabinet = new THREE.Mesh(new RoundedBoxGeometry(0.95, 0.74, 0.68, 4, 0.04), cabinetMat);
+  const tvCabinet = new THREE.Mesh(new RoundedBoxGeometry(0.96, 0.74, 0.68, 4, 0.04), cabinetMat);
   tvCabinet.position.y = 0.44;
   tvCabinet.castShadow = true;
   tvCabinet.receiveShadow = true;
   tvGroup.add(tvCabinet);
 
-  // Short angled mid-century legs
+  // Recessed dark bezel around CRT tube
+  const bezel = new THREE.Mesh(
+    new RoundedBoxGeometry(0.86, 0.62, 0.03, 3, 0.02),
+    new THREE.MeshStandardMaterial({ color: 0x1a1614, roughness: 0.7 })
+  );
+  bezel.position.set(0, 0.45, 0.33);
+  tvGroup.add(bezel);
+
   [
     [-0.36, -0.22],
     [0.36, -0.22],
@@ -917,7 +1250,6 @@ function buildLivingRoomProps() {
     tvGroup.add(leg);
   });
 
-  // Live procedural static canvas for CRT screen
   const crtCanvas = document.createElement("canvas");
   crtCanvas.width = 128;
   crtCanvas.height = 96;
@@ -929,57 +1261,60 @@ function buildLivingRoomProps() {
     map: crtStaticTex,
     emissiveMap: crtStaticTex,
     emissive: new THREE.Color(0x9ad0ff),
-    emissiveIntensity: 1.25,
+    emissiveIntensity: 1.05,
     roughness: 0.15
   });
 
-  const tvScreen = new THREE.Mesh(new RoundedBoxGeometry(0.64, 0.52, 0.04, 3, 0.04), crtScreenMat);
-  tvScreen.position.set(-0.08, 0.45, 0.33);
+  const tvScreen = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.5, 0.04, 3, 0.04), crtScreenMat);
+  tvScreen.position.set(-0.09, 0.45, 0.34);
   tvGroup.add(tvScreen);
 
-  // VHF/UHF tuning dials on the right of the CRT bezel
+  // Silver tuning panel + VHF/UHF rotary knobs + speaker grille slats
   const dialPanel = new THREE.Mesh(
-    new THREE.BoxGeometry(0.16, 0.52, 0.03),
-    new THREE.MeshStandardMaterial({ color: 0x221d1a, roughness: 0.6 })
+    new THREE.BoxGeometry(0.17, 0.52, 0.035),
+    new THREE.MeshStandardMaterial({ color: 0x2c2623, roughness: 0.5 })
   );
-  dialPanel.position.set(0.34, 0.45, 0.33);
+  dialPanel.position.set(0.33, 0.45, 0.34);
   tvGroup.add(dialPanel);
 
-  [0.56, 0.42].forEach((dy) => {
+  [0.58, 0.44].forEach((dy) => {
     const knob = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.04, 0.04, 0.03, 12),
-      new THREE.MeshStandardMaterial({ color: 0xc9b89b, roughness: 0.4 })
+      new THREE.CylinderGeometry(0.042, 0.042, 0.035, 14),
+      new THREE.MeshStandardMaterial({ color: 0xd8c8ac, roughness: 0.35, metalness: 0.3 })
     );
     knob.rotation.x = Math.PI / 2;
-    knob.position.set(0.34, dy, 0.35);
+    knob.position.set(0.33, dy, 0.36);
     tvGroup.add(knob);
   });
 
-  // Rabbit-ear V-antenna on top of the TV
-  const antennaMat = new THREE.MeshStandardMaterial({ color: 0xc0c5ce, metalness: 0.85, roughness: 0.2 });
+  const antennaMat = new THREE.MeshStandardMaterial({ color: 0xc4cad4, metalness: 0.85, roughness: 0.2 });
+  const antBase = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), phoneMat);
+  antBase.position.set(0, 0.81, 0.05);
+  tvGroup.add(antBase);
+
   [-1, 1].forEach((dir) => {
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.62, 6), antennaMat);
-    rod.position.set(dir * 0.16, 1.04, 0.05);
-    rod.rotation.z = -dir * 0.42;
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.64, 6), antennaMat);
+    rod.position.set(dir * 0.17, 1.05, 0.05);
+    rod.rotation.z = -dir * 0.44;
     tvGroup.add(rod);
   });
 
-  // 7. Low Wood Coffee Table with Board Game / Mug
+  // 7. Low Wood Coffee Table with Board Game Box, Cassettes & Mug
   const coffeeTable = new THREE.Group();
-  coffeeTable.position.set(0.12, 0.14, -0.15);
+  coffeeTable.position.set(0.14, 0.14, -0.12);
   dioramaGroup.add(coffeeTable);
 
-  const tableTop = new THREE.Mesh(new RoundedBoxGeometry(1.18, 0.06, 0.62, 3, 0.02), cabinetMat);
+  const tableTop = new THREE.Mesh(new RoundedBoxGeometry(1.22, 0.06, 0.64, 3, 0.02), cabinetMat);
   tableTop.position.y = 0.34;
   tableTop.castShadow = true;
   tableTop.receiveShadow = true;
   coffeeTable.add(tableTop);
 
   [
-    [-0.48, -0.22],
-    [0.48, -0.22],
-    [-0.48, 0.22],
-    [0.48, 0.22]
+    [-0.5, -0.23],
+    [0.5, -0.23],
+    [-0.5, 0.23],
+    [0.5, 0.23]
   ].forEach(([tx, tz]) => {
     const tLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.02, 0.32, 8), cabinetMat);
     tLeg.position.set(tx, 0.16, tz);
@@ -987,31 +1322,57 @@ function buildLivingRoomProps() {
     coffeeTable.add(tLeg);
   });
 
-  // Ceramic mug & polyhedral adventure dice sheet on coffee table
+  // Fantasy Tabletop Adventure Board Game Box on coffee table
+  const gameBoxGroup = new THREE.Group();
+  gameBoxGroup.position.set(0.18, 0.395, 0.02);
+  gameBoxGroup.rotation.y = 0.22;
+  coffeeTable.add(gameBoxGroup);
+
+  const gameBox = new THREE.Mesh(
+    new RoundedBoxGeometry(0.38, 0.055, 0.28, 2, 0.01),
+    new THREE.MeshStandardMaterial({ color: 0x8f241e, roughness: 0.55 })
+  );
+  gameBox.castShadow = true;
+  gameBoxGroup.add(gameBox);
+
+  const gameLabel = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.32, 0.22),
+    new THREE.MeshStandardMaterial({ color: 0xe6c786, roughness: 0.6 })
+  );
+  gameLabel.rotation.x = -Math.PI / 2;
+  gameLabel.position.y = 0.029;
+  gameBoxGroup.add(gameLabel);
+
+  // Stack of 3 1980s Audio Cassettes on coffee table
+  const cassetteColors = [0x24282e, 0xd97f2b, 0x2c6485];
+  cassetteColors.forEach((cc, idx) => {
+    const cas = new THREE.Mesh(
+      new RoundedBoxGeometry(0.14, 0.024, 0.09, 2, 0.005),
+      new THREE.MeshStandardMaterial({ color: cc, roughness: 0.4 })
+    );
+    cas.position.set(-0.34 + (idx % 2) * 0.02, 0.382 + idx * 0.025, -0.08 + idx * 0.01);
+    cas.rotation.y = -0.35 + idx * 0.28;
+    cas.castShadow = true;
+    coffeeTable.add(cas);
+  });
+
+  // Ceramic mug
   const mug = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.045, 0.042, 0.09, 12),
+    new THREE.CylinderGeometry(0.044, 0.04, 0.09, 12),
     new THREE.MeshStandardMaterial({ color: 0xd99b38, roughness: 0.3 })
   );
-  mug.position.set(-0.28, 0.41, 0.06);
+  mug.position.set(-0.18, 0.41, 0.14);
   mug.castShadow = true;
   coffeeTable.add(mug);
 
-  const sheet = new THREE.Mesh(
-    new THREE.BoxGeometry(0.32, 0.01, 0.24),
-    new THREE.MeshStandardMaterial({ color: 0xede0c4, roughness: 0.9 })
-  );
-  sheet.position.set(0.16, 0.375, -0.02);
-  sheet.rotation.y = 0.18;
-  coffeeTable.add(sheet);
-
-  // 8. Framed Family Photos on the Left Wall
+  // 8. Framed Family Photos with Actual Miniature Paintings on Left Wall
   const frameConfigs = [
-    { z: -0.55, y: 2.05, w: 0.52, h: 0.64, matColor: 0x3b526b },
-    { z: 0.15, y: 2.22, w: 0.46, h: 0.42, matColor: 0x7d4e38 },
-    { z: 0.78, y: 1.85, w: 0.44, h: 0.54, matColor: 0x4e6648 }
+    { z: -0.45, y: 2.08, w: 0.54, h: 0.64, variant: 0 },
+    { z: 0.22, y: 2.24, w: 0.46, h: 0.44, variant: 1 },
+    { z: 0.82, y: 1.86, w: 0.44, h: 0.54, variant: 2 }
   ];
 
-  frameConfigs.forEach((fc) => {
+  frameConfigs.forEach((fc, idx) => {
     const fGroup = new THREE.Group();
     fGroup.position.set(-2.59, fc.y, fc.z);
     fGroup.rotation.y = Math.PI / 2;
@@ -1021,40 +1382,59 @@ function buildLivingRoomProps() {
     frameOuter.castShadow = true;
     fGroup.add(frameOuter);
 
-    const photoMat = new THREE.MeshStandardMaterial({ color: 0xe6d8be, roughness: 0.7 });
-    const passepartout = new THREE.Mesh(new THREE.PlaneGeometry(fc.w - 0.08, fc.h - 0.08), photoMat);
+    const passepartout = new THREE.Mesh(
+      new THREE.PlaneGeometry(fc.w - 0.08, fc.h - 0.08),
+      new THREE.MeshStandardMaterial({ color: 0xe6d8be, roughness: 0.7 })
+    );
     passepartout.position.z = 0.019;
     fGroup.add(passepartout);
 
     const art = new THREE.Mesh(
-      new THREE.PlaneGeometry(fc.w - 0.16, fc.h - 0.16),
-      new THREE.MeshStandardMaterial({ color: fc.matColor, roughness: 0.6 })
+      new THREE.PlaneGeometry(fc.w - 0.15, fc.h - 0.15),
+      new THREE.MeshStandardMaterial({
+        map: createFramedPictureTexture(fc.variant),
+        roughness: 0.65
+      })
     );
     art.position.z = 0.021;
     fGroup.add(art);
+
+    distortableProps.push({
+      mesh: fGroup,
+      baseRotZ: 0,
+      targetRotZ: (idx % 2 === 0 ? 1 : -1) * (0.14 + idx * 0.04)
+    });
   });
 
-  // 9. Scattered Kids' Toys on the Rug (Wooden Blocks, Walkie-Talkie, Toy Car)
+  // 9. Scattered Floor Cushions, Walkie-Talkie & Toy Blocks on the Rug
+  const floorCushion = new THREE.Mesh(
+    new RoundedBoxGeometry(0.42, 0.11, 0.42, 3, 0.04),
+    new THREE.MeshStandardMaterial({ color: 0xb05232, roughness: 0.88 })
+  );
+  floorCushion.position.set(0.88, 0.2, 0.45);
+  floorCushion.rotation.y = 0.42;
+  floorCushion.castShadow = true;
+  floorCushion.receiveShadow = true;
+  dioramaGroup.add(floorCushion);
+
   const blockColors = [0xd64535, 0x3b78b8, 0xe6b333];
-  const blockCoords = [
-    { x: -0.45, z: 0.68, ry: 0.4 },
-    { x: -0.32, z: 0.74, ry: 1.1 },
-    { x: -0.39, z: 0.59, ry: -0.3 }
-  ];
-  blockCoords.forEach((b, idx) => {
+  [
+    { x: -0.48, z: 0.72, ry: 0.4 },
+    { x: -0.35, z: 0.78, ry: 1.1 },
+    { x: -0.42, z: 0.62, ry: -0.3 }
+  ].forEach((b, idx) => {
     const blk = new THREE.Mesh(
-      new RoundedBoxGeometry(0.095, 0.095, 0.095, 2, 0.015),
+      new RoundedBoxGeometry(0.09, 0.09, 0.09, 2, 0.015),
       new THREE.MeshStandardMaterial({ color: blockColors[idx], roughness: 0.5 })
     );
-    blk.position.set(b.x, 0.205, b.z);
+    blk.position.set(b.x, 0.2, b.z);
     blk.rotation.y = b.ry;
     blk.castShadow = true;
     dioramaGroup.add(blk);
   });
 
-  // Retro handheld walkie-talkie on the rug
   const walkieGroup = new THREE.Group();
-  walkieGroup.position.set(0.58, 0.18, 0.85);
+  walkieGroup.position.set(0.46, 0.18, 0.86);
   walkieGroup.rotation.x = -Math.PI / 2;
   walkieGroup.rotation.z = -0.55;
   dioramaGroup.add(walkieGroup);
@@ -1072,19 +1452,135 @@ function buildLivingRoomProps() {
   );
   walkieAnt.position.set(0.03, 0.24, 0);
   walkieGroup.add(walkieAnt);
+
+  // Subtle furniture tilt targets for The Other Side
+  distortableProps.push(
+    { mesh: chairGroup, baseRotZ: 0, targetRotZ: 0.045 },
+    { mesh: coffeeTable, baseRotZ: 0, targetRotZ: -0.038 }
+  );
 }
 
 buildLivingRoomProps();
 
 // ============================================================================
-// 7. LIGHTING & FLOATING DUST MOTES / ASH SPORES
+// 7. EERIE "OTHER SIDE" CREEPING VINES / TENDRILS & ROLLING FLOOR FOG
 // ============================================================================
-const ambientLight = new THREE.HemisphereLight(0xffe2b8, 0x291a12, 0.62);
+const vineMeshes = [];
+const vineMat = new THREE.MeshStandardMaterial({
+  color: 0x111a21,
+  roughness: 0.78,
+  metalness: 0.12
+});
+
+function buildCreepingTendrils() {
+  const vinePaths = [
+    // Upper-left corner creeping down across the alphabet wall toward the letters
+    [
+      [-2.58, 3.18, -2.11],
+      [-2.1, 2.95, -2.10],
+      [-1.55, 2.68, -2.09],
+      [-0.95, 2.38, -2.10],
+      [-0.45, 2.02, -2.11]
+    ],
+    // Secondary branch off upper-left
+    [
+      [-2.1, 2.95, -2.10],
+      [-1.85, 2.35, -2.10],
+      [-1.42, 1.88, -2.10],
+      [-1.08, 1.45, -2.11]
+    ],
+    // Upper-right corner creeping down behind letters G/H, P/Q, Y/Z
+    [
+      [2.65, 3.15, -2.11],
+      [2.22, 2.82, -2.10],
+      [1.75, 2.48, -2.09],
+      [1.25, 2.05, -2.10],
+      [0.82, 1.65, -2.11]
+    ],
+    // Lower-right creeping from behind the sofa onto the hardwood floor & rug
+    [
+      [1.95, 0.95, -2.10],
+      [1.72, 0.35, -1.95],
+      [1.52, 0.16, -1.25],
+      [1.18, 0.16, -0.45],
+      [0.78, 0.165, 0.25]
+    ],
+    // Left wall creeping down over wainscoting onto floor near armchair
+    [
+      [-2.58, 2.85, -1.25],
+      [-2.58, 1.95, -0.65],
+      [-2.58, 0.95, -0.15],
+      [-2.42, 0.16, 0.35],
+      [-1.85, 0.16, 0.85]
+    ],
+    // Bottom-left behind sideboard creeping toward coffee table
+    [
+      [-1.65, 0.16, -1.85],
+      [-1.25, 0.16, -1.15],
+      [-0.75, 0.165, -0.55],
+      [-0.32, 0.165, 0.08]
+    ]
+  ];
+
+  vinePaths.forEach((pts, idx) => {
+    const vectors = pts.map(([x, y, z]) => new THREE.Vector3(x, y, z));
+    const curve = new THREE.CatmullRomCurve3(vectors);
+    const radius = idx < 3 ? 0.026 : 0.032;
+    const geo = new THREE.TubeGeometry(curve, 32, radius, 6, false);
+    const mesh = new THREE.Mesh(geo, vineMat);
+    mesh.scale.setScalar(0.001);
+    mesh.visible = false;
+    mesh.castShadow = true;
+    dioramaGroup.add(mesh);
+    vineMeshes.push(mesh);
+  });
+}
+
+buildCreepingTendrils();
+
+// Low rolling ground fog planes for The Other Side
+function createFogPatchTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(128, 128, 12, 128, 128, 124);
+  g.addColorStop(0, "rgba(155, 205, 235, 0.42)");
+  g.addColorStop(0.55, "rgba(95, 145, 185, 0.18)");
+  g.addColorStop(1, "rgba(50, 90, 125, 0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  return new THREE.CanvasTexture(c);
+}
+
+const groundFogTex = createFogPatchTexture();
+const groundFogLayers = [];
+
+for (let i = 0; i < 3; i++) {
+  const fMat = new THREE.MeshBasicMaterial({
+    map: groundFogTex,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.NormalBlending
+  });
+  const fPlane = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 3.8), fMat);
+  fPlane.rotation.x = -Math.PI / 2;
+  fPlane.position.set((i - 1) * 0.35, 0.21 + i * 0.06, 0.15);
+  dioramaGroup.add(fPlane);
+  groundFogLayers.push({ mesh: fPlane, mat: fMat, speed: 0.22 + i * 0.11, phase: i * 2.1 });
+}
+
+// ============================================================================
+// 8. LIGHTING & FLOATING DUST MOTES / THICK OTHER-SIDE SPORES
+// ============================================================================
+// Slightly dimmer room ambient so the Christmas bulbs & lamps are the hero light sources
+const ambientLight = new THREE.HemisphereLight(0xffdca8, 0x1e130c, 0.42);
 scene.add(ambientLight);
 
-// Main Floor Lamp Warm PointLight (casts soft contact & furniture shadows)
-const lampLight = new THREE.PointLight(0xffa646, 4.4, 9.5, 1.5);
-lampLight.position.set(1.88, 1.88, -1.48);
+// Floor Lamp Warm PointLight (in front-left corner)
+const lampLight = new THREE.PointLight(0xffa13d, 3.4, 8.8, 1.5);
+lampLight.position.set(-2.05, 1.78, 1.32);
 lampLight.castShadow = true;
 lampLight.shadow.mapSize.width = 1024;
 lampLight.shadow.mapSize.height = 1024;
@@ -1092,28 +1588,33 @@ lampLight.shadow.bias = -0.002;
 lampLight.shadow.radius = 3.5;
 dioramaGroup.add(lampLight);
 
+// Table Lamp Warm Accent Light (on left sideboard)
+const tableLampLight = new THREE.PointLight(0xff9c38, 1.65, 4.5, 1.6);
+tableLampLight.position.set(-1.95, 1.32, -0.86);
+dioramaGroup.add(tableLampLight);
+
 // CRT TV Flicker Glow Light
-const tvLight = new THREE.PointLight(0x7cbfff, 1.35, 4.5, 1.6);
+const tvLight = new THREE.PointLight(0x7cbfff, 1.25, 4.2, 1.6);
 tvLight.position.set(1.42, 0.62, 0.42);
 dioramaGroup.add(tvLight);
 
-// Soft overhead fill for the collectible plinth & alphabet wall readability
-const fillSpot = new THREE.SpotLight(0xffdfb0, 2.2, 14, Math.PI * 0.38, 0.65, 1.2);
-fillSpot.position.set(-1.5, 5.2, 3.8);
-fillSpot.target.position.set(0, 1.4, -1.0);
+// Soft overhead gallery spot for the plinth & wall readability
+const fillSpot = new THREE.SpotLight(0xffdfb0, 1.55, 15, Math.PI * 0.42, 0.7, 1.2);
+fillSpot.position.set(1.4, 5.4, 4.2);
+fillSpot.target.position.set(0, 1.45, -1.0);
 dioramaGroup.add(fillSpot);
 dioramaGroup.add(fillSpot.target);
 
-// Floating Dust Motes (Warm World) / Drifting Spores & Ash (The Other Side)
-const PARTICLE_COUNT = 160;
+// Floating Dust Motes (Warm World) / Thick Drifting Spores & Ash (The Other Side)
+const PARTICLE_COUNT = 260;
 const particleGeo = new THREE.BufferGeometry();
 const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
 const particleSeeds = new Float32Array(PARTICLE_COUNT);
 
 for (let i = 0; i < PARTICLE_COUNT; i++) {
-  particlePositions[i * 3 + 0] = (Math.random() - 0.5) * 4.8;
-  particlePositions[i * 3 + 1] = 0.25 + Math.random() * 2.85;
-  particlePositions[i * 3 + 2] = -2.0 + Math.random() * 4.0;
+  particlePositions[i * 3 + 0] = (Math.random() - 0.5) * 5.0;
+  particlePositions[i * 3 + 1] = 0.22 + Math.random() * 2.95;
+  particlePositions[i * 3 + 2] = -2.05 + Math.random() * 4.2;
   particleSeeds[i] = Math.random() * Math.PI * 2;
 }
 particleGeo.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
@@ -1121,9 +1622,9 @@ particleGeo.setAttribute("position", new THREE.BufferAttribute(particlePositions
 const particleMat = new THREE.PointsMaterial({
   map: glowSpriteTex,
   color: 0xffe4ad,
-  size: 0.085,
+  size: 0.075,
   transparent: true,
-  opacity: 0.55,
+  opacity: 0.45,
   depthWrite: false,
   blending: THREE.AdditiveBlending
 });
@@ -1132,11 +1633,11 @@ const dustParticles = new THREE.Points(particleGeo, particleMat);
 dioramaGroup.add(dustParticles);
 
 // ============================================================================
-// 8. INTERACTIONS: SPELLING WALL, DEMO SEQUENCE & DIMENSION SHIFT
+// 9. INTERACTIONS: SPELLING WALL, DEMO SEQUENCE & DIMENSION SHIFT
 // ============================================================================
 const spelledCharacters = [];
 let isOtherSide = false;
-let otherSideProgress = 0; // Smoothly lerps 0.0 (Warm) <-> 1.0 (Other Side)
+let otherSideProgress = 0;
 let demoIntervalId = null;
 let hasInteracted = false;
 
@@ -1224,7 +1725,6 @@ btnClear.addEventListener("click", clearAllLitBulbs);
 btnDemo.addEventListener("click", () => playDemoPhrase("RUN"));
 btnDimension.addEventListener("click", () => toggleOtherSide());
 
-// Keyboard support so desktop users can also type A-Z or Backspace directly
 window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const key = e.key.toUpperCase();
@@ -1237,7 +1737,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 // ============================================================================
-// 9. POINTER RAYCASTING & LONG-PRESS HOLD FOR "THE OTHER SIDE"
+// 10. POINTER RAYCASTING & LONG-PRESS HOLD FOR "THE OTHER SIDE"
 // ============================================================================
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
@@ -1268,7 +1768,6 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
 
   const hitNode = getHitLetterNode(e.clientX, e.clientY);
   if (!hitNode) {
-    // Start hold-to-shift timer if user presses and holds still
     isHoldingBackground = true;
     holdStartTime = performance.now();
     holdIndicator.style.left = `${e.clientX}px`;
@@ -1284,13 +1783,11 @@ renderer.domElement.addEventListener("pointermove", (e) => {
   const dist = Math.hypot(dx, dy);
 
   if (dist > 10) {
-    // User is orbiting the camera, cancel hold gesture
     isHoldingBackground = false;
     holdIndicator.classList.remove("active");
     dismissHintBanner();
   }
 
-  // Hover cursor feedback on desktop
   if (e.pointerType === "mouse" && !e.buttons) {
     const hoverNode = getHitLetterNode(e.clientX, e.clientY);
     renderer.domElement.style.cursor = hoverNode ? "pointer" : "grab";
@@ -1307,7 +1804,6 @@ window.addEventListener("pointerup", (e) => {
   holdIndicator.classList.remove("active");
   holdRingFg.style.strokeDashoffset = "113.1";
 
-  // Quick tap/click on a bulb or letter
   if (dist < 12 && elapsed < 420) {
     const hitNode = getHitLetterNode(e.clientX, e.clientY);
     if (hitNode) {
@@ -1316,7 +1812,6 @@ window.addEventListener("pointerup", (e) => {
   }
 });
 
-// Prevent double-tap zoom on mobile browsers
 renderer.domElement.addEventListener(
   "touchstart",
   (e) => {
@@ -1328,22 +1823,23 @@ renderer.domElement.addEventListener(
 );
 
 // ============================================================================
-// 10. ANIMATION LOOP (Twinkle, CRT Static, Dimension Interpolation & Drift)
+// 11. ANIMATION LOOP (Twinkle, Blackouts, Vines, Heartbeat & Camera Breathing)
 // ============================================================================
 const clock = new THREE.Clock();
 let lastStaticFrame = 0;
+let lastHeartbeatStep = -1;
+let baseCameraFov = 38;
 
-// Pre-allocated color buffers to avoid per-frame garbage collection
-const warmFogColor = new THREE.Color(0x160f0b);
-const coldFogColor = new THREE.Color(0x050c14);
-const warmLampColor = new THREE.Color(0xffa646);
-const coldLampColor = new THREE.Color(0x3f88c5);
-const warmSkyColor = new THREE.Color(0xffe2b8);
-const coldSkyColor = new THREE.Color(0x284e78);
+const warmFogColor = new THREE.Color(0x120c08);
+const coldFogColor = new THREE.Color(0x040910);
+const warmLampColor = new THREE.Color(0xffa13d);
+const coldLampColor = new THREE.Color(0x2e6ea6);
+const warmSkyColor = new THREE.Color(0xffdca8);
+const coldSkyColor = new THREE.Color(0x1e3c5c);
 const warmWallTint = new THREE.Color(0xffffff);
-const coldWallTint = new THREE.Color(0x526b82);
+const coldWallTint = new THREE.Color(0x465c70);
 const warmParticleColor = new THREE.Color(0xffe4ad);
-const coldParticleColor = new THREE.Color(0xb8e6ff);
+const coldParticleColor = new THREE.Color(0xc2e9ff);
 const tempColor = new THREE.Color();
 
 function updateCRTStatic(elapsed, upsideDownAmt) {
@@ -1355,22 +1851,20 @@ function updateCRTStatic(elapsed, upsideDownAmt) {
   const imgData = crtStaticCtx.createImageData(w, h);
   const data = imgData.data;
 
-  // Rolling horizontal sync bar in the Other Side
-  const rollY = Math.floor((elapsed * (upsideDownAmt > 0.3 ? 95 : 30)) % h);
+  const rollY = Math.floor((elapsed * (upsideDownAmt > 0.3 ? 105 : 28)) % h);
 
   for (let y = 0; y < h; y++) {
-    const scanline = y % 2 === 0 ? 0.78 : 1.0;
-    const isSyncBar = Math.abs(y - rollY) < (upsideDownAmt > 0.3 ? 10 : 4);
+    const scanline = y % 2 === 0 ? 0.76 : 1.0;
+    const isSyncBar = Math.abs(y - rollY) < (upsideDownAmt > 0.3 ? 11 : 4);
 
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const noise = Math.random();
-      const base = (noise * 175 + (isSyncBar ? 65 : 15)) * scanline;
+      const base = (noise * 170 + (isSyncBar ? 70 : 12)) * scanline;
 
-      // Tint blue-cyan in the Other Side, warm bluish-grey in normal mode
-      data[i] = base * (1 - upsideDownAmt * 0.45);
-      data[i + 1] = base * (1 - upsideDownAmt * 0.1);
-      data[i + 2] = Math.min(255, base * (1.1 + upsideDownAmt * 0.4));
+      data[i] = base * (1 - upsideDownAmt * 0.48);
+      data[i + 1] = base * (1 - upsideDownAmt * 0.12);
+      data[i + 2] = Math.min(255, base * (1.12 + upsideDownAmt * 0.45));
       data[i + 3] = 255;
     }
   }
@@ -1384,7 +1878,7 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1);
   const elapsed = clock.getElapsedTime();
 
-  // Check long-press hold progress for "The Other Side"
+  // Check hold-to-shift progress
   if (isHoldingBackground) {
     const heldTime = performance.now() - holdStartTime;
     if (heldTime > 160) {
@@ -1399,38 +1893,92 @@ function animate() {
     }
   }
 
-  // Smooth ~2 second interpolation for "The Other Side"
+  // Smooth ~2s interpolation between Warm World (0) and The Other Side (1)
   const targetShift = isOtherSide ? 1.0 : 0.0;
-  otherSideProgress = THREE.MathUtils.lerp(otherSideProgress, targetShift, dt * 2.2);
+  otherSideProgress = THREE.MathUtils.lerp(otherSideProgress, targetShift, dt * 2.1);
 
-  // Interpolate atmosphere, fog, and lighting palette
+  // Subtle rhythmic heartbeat pulse (~0.85 Hz lub-dub) in The Other Side
+  const beatCycle = (elapsed * 0.82) % 1.0;
+  const lub = Math.exp(-Math.pow((beatCycle - 0.12) / 0.045, 2));
+  const dub = 0.65 * Math.exp(-Math.pow((beatCycle - 0.30) / 0.055, 2));
+  const heartbeatPulse = (lub + dub) * otherSideProgress;
+
+  const currentBeatIndex = Math.floor(elapsed * 0.82);
+  if (otherSideProgress > 0.65 && currentBeatIndex !== lastHeartbeatStep) {
+    lastHeartbeatStep = currentBeatIndex;
+    audio.playHeartbeatThump(otherSideProgress);
+  }
+
+  // Unsettling subtle camera FOV breathing while in The Other Side
+  const fovBreath =
+    otherSideProgress * (Math.sin(elapsed * 1.45) * 0.65 + heartbeatPulse * 0.55);
+  if (Math.abs(camera.fov - (baseCameraFov + fovBreath)) > 0.01) {
+    camera.fov = baseCameraFov + fovBreath;
+    camera.updateProjectionMatrix();
+  }
+
+  // Atmosphere, wall discoloration & peeling grime overlay
   scene.fog.color.lerpColors(warmFogColor, coldFogColor, otherSideProgress);
   ambientLight.color.lerpColors(warmSkyColor, coldSkyColor, otherSideProgress);
   wallpaperMat.color.lerpColors(warmWallTint, coldWallTint, otherSideProgress);
   sideWallpaperMat.color.copy(wallpaperMat.color);
+  decayWallMat.opacity = otherSideProgress * 0.82;
 
-  // Lamp flicker (gentle warm breathe vs erratic cold brownout in the Other Side)
-  const normalFlicker = 1.0 + Math.sin(elapsed * 3.1) * 0.03 + Math.sin(elapsed * 7.3) * 0.015;
+  // Creeping 3D tendrils/vines growth across walls and floor
+  vineMeshes.forEach((vm, idx) => {
+    const delayedProgress = THREE.MathUtils.clamp((otherSideProgress - idx * 0.06) / 0.72, 0, 1);
+    vm.visible = delayedProgress > 0.01;
+    if (vm.visible) {
+      const pulseScale = 1.0 + heartbeatPulse * 0.08 * Math.sin(elapsed * 3 + idx);
+      vm.scale.set(delayedProgress * pulseScale, delayedProgress, delayedProgress * pulseScale);
+    }
+  });
+
+  // Subtle furniture & picture frame distortion in The Other Side
+  distortableProps.forEach((dp) => {
+    dp.mesh.rotation.z = THREE.MathUtils.lerp(dp.baseRotZ, dp.targetRotZ, otherSideProgress);
+  });
+
+  // Rolling floor-level fog layers in The Other Side
+  groundFogLayers.forEach((layer, idx) => {
+    layer.mat.opacity = otherSideProgress * (0.28 + 0.08 * Math.sin(elapsed * 0.9 + layer.phase));
+    layer.mesh.position.x = Math.sin(elapsed * layer.speed + layer.phase) * 0.38;
+    layer.mesh.position.z = 0.15 + Math.cos(elapsed * layer.speed * 0.8 + idx) * 0.25;
+  });
+
+  // Occasional eerie power blackout drops in The Other Side
+  const blackoutWave = Math.sin(elapsed * 6.7) * Math.cos(elapsed * 15.3) * Math.sin(elapsed * 2.9);
+  const isBlackoutDrop = otherSideProgress > 0.45 && blackoutWave > 0.66;
+  const blackoutFactor = isBlackoutDrop ? 0.08 : 1.0;
+
+  // Lamp flicker + heartbeat pulse
+  const normalFlicker = 1.0 + Math.sin(elapsed * 3.1) * 0.025 + Math.sin(elapsed * 7.3) * 0.012;
   const eerieFlicker =
-    Math.sin(elapsed * 23.0) * Math.cos(elapsed * 13.7) > 0.45
-      ? 0.22
-      : 0.75 + Math.sin(elapsed * 17.0) * 0.25;
+    (0.65 + Math.sin(elapsed * 19.0) * 0.22 + heartbeatPulse * 0.35) * blackoutFactor;
   const combinedFlicker = THREE.MathUtils.lerp(normalFlicker, eerieFlicker, otherSideProgress);
 
   lampLight.color.lerpColors(warmLampColor, coldLampColor, otherSideProgress);
-  lampLight.intensity = THREE.MathUtils.lerp(4.4, 2.5, otherSideProgress) * combinedFlicker;
+  lampLight.intensity = THREE.MathUtils.lerp(3.4, 1.85, otherSideProgress) * combinedFlicker;
+  tableLampLight.color.copy(lampLight.color);
+  tableLampLight.intensity = THREE.MathUtils.lerp(1.65, 0.9, otherSideProgress) * combinedFlicker;
+  wallStringGlowLight.color.lerpColors(warmLampColor, coldLampColor, otherSideProgress);
+  wallStringGlowLight.intensity = THREE.MathUtils.lerp(1.35, 0.85, otherSideProgress) * combinedFlicker;
 
-  if (lampShadeMat) {
-    lampShadeMat.emissive.copy(lampLight.color);
-    lampShadeMat.emissiveIntensity = 0.85 * combinedFlicker;
+  if (floorLampShadeMat) {
+    floorLampShadeMat.emissive.copy(lampLight.color);
+    floorLampShadeMat.emissiveIntensity = 0.75 * combinedFlicker;
+  }
+  if (tableLampShadeMat) {
+    tableLampShadeMat.emissive.copy(lampLight.color);
+    tableLampShadeMat.emissiveIntensity = 0.65 * combinedFlicker;
   }
 
-  // CRT TV flicker & static intensification
+  // CRT TV static & glow
   updateCRTStatic(elapsed, otherSideProgress);
-  const tvJitter = 1.0 + Math.sin(elapsed * 19.0) * (0.12 + otherSideProgress * 0.35);
-  tvLight.intensity = THREE.MathUtils.lerp(1.35, 2.85, otherSideProgress) * tvJitter;
+  const tvJitter = 1.0 + Math.sin(elapsed * 19.0) * (0.1 + otherSideProgress * 0.35);
+  tvLight.intensity = THREE.MathUtils.lerp(1.25, 2.75, otherSideProgress) * tvJitter;
   if (crtScreenMat) {
-    crtScreenMat.emissiveIntensity = THREE.MathUtils.lerp(1.2, 2.2, otherSideProgress) * tvJitter;
+    crtScreenMat.emissiveIntensity = THREE.MathUtils.lerp(1.05, 2.25, otherSideProgress) * tvJitter;
   }
 
   // Update all 26 Christmas bulbs on the Alphabet Wall
@@ -1438,12 +1986,16 @@ function animate() {
   letterNodes.forEach((node, i) => {
     node.pulseEnergy = Math.max(0, node.pulseEnergy - dt * 1.8);
 
-    // Gentle warm twinkle vs erratic cold surge in the Other Side
-    const gentleTwinkle = 0.32 + 0.1 * Math.sin(elapsed * 2.2 + i * 0.9);
+    // Warm room: rich glowing colored bulbs; Other Side: cold erratic surges & occasional blackouts
+    const gentleTwinkle = 0.68 + 0.14 * Math.sin(elapsed * 2.1 + i * 0.85);
+    const localBlackout =
+      otherSideProgress > 0.5 && Math.sin(elapsed * 14.0 + i * 2.7) > 0.82 ? 0.03 : 1.0;
     const coldSurge =
-      0.18 +
-      0.55 * Math.pow(Math.max(0, Math.sin(elapsed * 8.5 + i * 1.73)), 6) +
-      (Math.random() < 0.015 * otherSideProgress ? 0.9 : 0);
+      (0.22 +
+        0.75 * Math.pow(Math.max(0, Math.sin(elapsed * 9.2 + i * 1.67)), 6) +
+        heartbeatPulse * 0.35) *
+      blackoutFactor *
+      localBlackout;
 
     const idleGlow = THREE.MathUtils.lerp(gentleTwinkle, coldSurge, otherSideProgress);
 
@@ -1454,64 +2006,114 @@ function animate() {
 
     if (node.isLit) {
       anyLitCount++;
-      const litFlicker = 1.0 + Math.sin(elapsed * 12 + i) * (0.05 + otherSideProgress * 0.22);
-      const boost = (3.4 + node.pulseEnergy * 2.4) * litFlicker;
+      const litFlicker =
+        (1.0 + Math.sin(elapsed * 12 + i) * (0.05 + otherSideProgress * 0.25)) *
+        (isBlackoutDrop ? 0.28 : 1.0);
+      const boost = (3.8 + node.pulseEnergy * 2.6) * litFlicker;
       node.bulbMat.emissiveIntensity = boost;
-      node.haloMat.opacity = Math.min(0.95, 0.68 + node.pulseEnergy * 0.28);
-      const s = 1.0 + node.pulseEnergy * 0.22;
-      node.bulbMesh.scale.set(0.82 * s, 1.38 * s, 0.82 * s);
+      node.haloMat.opacity = Math.min(0.98, 0.76 + node.pulseEnergy * 0.24);
+      const s = 1.0 + node.pulseEnergy * 0.24;
+      node.bulbMesh.scale.set(0.95 * s, 1.24 * s, 0.95 * s);
     } else {
       node.bulbMat.emissiveIntensity = idleGlow;
-      node.haloMat.opacity = idleGlow * 0.28;
-      node.bulbMesh.scale.set(0.82, 1.38, 0.82);
+      node.haloMat.opacity = idleGlow * 0.36;
+      node.bulbMesh.scale.set(0.95, 1.24, 0.95);
     }
   });
 
-  // Dynamic point light from the active spelled bulb
-  const targetBulbLightIntensity = anyLitCount > 0 ? 2.4 : 0.0;
+  const targetBulbLightIntensity = anyLitCount > 0 ? 2.6 : 0.0;
   activeBulbLight.intensity = THREE.MathUtils.lerp(activeBulbLight.intensity, targetBulbLightIntensity, dt * 8);
   activeBulbLight.color.lerpColors(warmLampColor, coldParticleColor, otherSideProgress);
 
-  // Update drifting Dust Motes / Other Side Spores
+  // Drifting Dust Motes vs Thick Ash/Spores in The Other Side
   particleMat.color.lerpColors(warmParticleColor, coldParticleColor, otherSideProgress);
-  particleMat.size = THREE.MathUtils.lerp(0.075, 0.115, otherSideProgress);
-  particleMat.opacity = THREE.MathUtils.lerp(0.5, 0.82, otherSideProgress);
+  particleMat.size = THREE.MathUtils.lerp(0.072, 0.135, otherSideProgress);
+  particleMat.opacity = THREE.MathUtils.lerp(0.42, 0.88, otherSideProgress);
 
   const posAttr = particleGeo.getAttribute("position");
-  const speedMult = 1.0 + otherSideProgress * 1.8;
+  const speedMult = 1.0 + otherSideProgress * 2.1;
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const seed = particleSeeds[i];
-    let px = posAttr.getX(i) + Math.sin(elapsed * 0.6 + seed) * 0.0018 * speedMult;
-    let py = posAttr.getY(i) + (0.0014 + Math.cos(elapsed * 0.4 + seed) * 0.0008) * speedMult;
-    let pz = posAttr.getZ(i) + Math.cos(elapsed * 0.5 + seed) * 0.0015 * speedMult;
+    let px = posAttr.getX(i) + Math.sin(elapsed * 0.65 + seed) * 0.0019 * speedMult;
+    let py = posAttr.getY(i) + (0.0014 + Math.cos(elapsed * 0.45 + seed) * 0.0009) * speedMult;
+    let pz = posAttr.getZ(i) + Math.cos(elapsed * 0.55 + seed) * 0.0016 * speedMult;
 
-    if (py > 3.1) py = 0.22;
-    if (px > 2.4) px = -2.4;
-    if (px < -2.4) px = 2.4;
+    if (py > 3.15) py = 0.2;
+    if (px > 2.45) px = -2.45;
+    if (px < -2.45) px = 2.45;
 
     posAttr.setXYZ(i, px, py, pz);
   }
   posAttr.needsUpdate = true;
 
-  // Subtle idle diorama float & gentle camera sway when untouched
-  dioramaGroup.position.y = Math.sin(elapsed * 0.85) * 0.025;
-  dioramaGroup.rotation.y = Math.sin(elapsed * 0.32) * 0.035;
+  // Gentle miniature float + subtle unsettling sway in The Other Side
+  const swayAmp = 1.0 + otherSideProgress * 0.85;
+  dioramaGroup.position.y = Math.sin(elapsed * 0.85) * 0.024 * swayAmp;
+  dioramaGroup.rotation.y = Math.sin(elapsed * 0.32) * 0.032 * swayAmp;
+  dioramaGroup.rotation.z = otherSideProgress * Math.sin(elapsed * 0.55) * 0.015;
 
   controls.update();
   renderer.render(scene, camera);
 }
 
 // ============================================================================
-// 11. RESPONSIVE RESIZE & GENTLE FADE-IN ON READY
+// 12. 320px PORTRAIT-SAFE CAMERA FIT (First Layout & Orientation Change Only)
 // ============================================================================
+let initialFitDone = false;
+let lastOrientationIsPortrait = window.innerHeight >= window.innerWidth;
+
+function fitCameraToWall() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const aspect = w / Math.max(1, h);
+
+  camera.aspect = aspect;
+
+  // Ensure the full 9.1-unit plinth & all 26 letters (A-Z) fit comfortably even at 320px portrait
+  baseCameraFov = aspect < 0.75 ? 48 : aspect < 1.0 ? 43 : 36;
+  camera.fov = baseCameraFov;
+  camera.updateProjectionMatrix();
+
+  const vFovRad = THREE.MathUtils.degToRad(baseCameraFov);
+  const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
+
+  // Required width to fit the full alphabet wall + wooden plinth with breathing room on 320px screens
+  const requiredWidth = 6.75;
+  const requiredHeight = 4.65;
+
+  const distH = requiredWidth / 2 / Math.tan(hFovRad / 2);
+  const distV = requiredHeight / 2 / Math.tan(vFovRad / 2);
+  const distance = Math.max(distH, distV, 7.6);
+
+  // On narrow portrait screens, center the azimuth slightly so neither A/I/R nor H/Q/Z gets clipped
+  const azimuth = aspect < 0.85 ? 0.16 : 0.38;
+  const elevation = aspect < 0.85 ? 0.30 : 0.33;
+
+  controls.target.set(0.05, 1.38, -0.35);
+  camera.position.set(
+    controls.target.x + distance * Math.sin(azimuth) * Math.cos(elevation),
+    controls.target.y + distance * Math.sin(elevation),
+    controls.target.z + distance * Math.cos(azimuth) * Math.cos(elevation)
+  );
+  controls.update();
+}
+
 function handleResize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  camera.aspect = w / h;
-  // Slightly widen FOV on narrow portrait phones (e.g. 320px wide) so the full plinth fits comfortably
-  camera.fov = w < 480 ? 44 : 36;
-  camera.updateProjectionMatrix();
+  const isPortrait = h >= w;
+
   renderer.setSize(w, h);
+
+  if (!initialFitDone || isPortrait !== lastOrientationIsPortrait) {
+    initialFitDone = true;
+    lastOrientationIsPortrait = isPortrait;
+    fitCameraToWall();
+  } else {
+    // Preserve user's current orbit position on ordinary window resize
+    camera.aspect = w / Math.max(1, h);
+    camera.updateProjectionMatrix();
+  }
 }
 
 window.addEventListener("resize", handleResize);
