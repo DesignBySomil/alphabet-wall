@@ -1955,15 +1955,15 @@ function animate() {
   // Lamp flicker + heartbeat pulse
   const normalFlicker = 1.0 + Math.sin(elapsed * 3.1) * 0.025 + Math.sin(elapsed * 7.3) * 0.012;
   const eerieFlicker =
-    (0.65 + Math.sin(elapsed * 19.0) * 0.22 + heartbeatPulse * 0.35) * blackoutFactor;
+    (0.88 + Math.sin(elapsed * 19.0) * 0.2 + heartbeatPulse * 0.35) * blackoutFactor;
   const combinedFlicker = THREE.MathUtils.lerp(normalFlicker, eerieFlicker, otherSideProgress);
 
   lampLight.color.lerpColors(warmLampColor, coldLampColor, otherSideProgress);
-  lampLight.intensity = THREE.MathUtils.lerp(3.4, 1.85, otherSideProgress) * combinedFlicker;
+  lampLight.intensity = THREE.MathUtils.lerp(3.4, 3.0, otherSideProgress) * combinedFlicker;
   tableLampLight.color.copy(lampLight.color);
-  tableLampLight.intensity = THREE.MathUtils.lerp(1.65, 0.9, otherSideProgress) * combinedFlicker;
+  tableLampLight.intensity = THREE.MathUtils.lerp(1.65, 1.4, otherSideProgress) * combinedFlicker;
   wallStringGlowLight.color.lerpColors(warmLampColor, coldLampColor, otherSideProgress);
-  wallStringGlowLight.intensity = THREE.MathUtils.lerp(1.35, 0.85, otherSideProgress) * combinedFlicker;
+  wallStringGlowLight.intensity = THREE.MathUtils.lerp(1.35, 2.2, otherSideProgress) * combinedFlicker;
 
   if (floorLampShadeMat) {
     floorLampShadeMat.emissive.copy(lampLight.color);
