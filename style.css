@@ -391,6 +391,6 @@ body.other-side .hud-btn-alt {
   .hint-banner {
     font-size: 0.57rem;
     padding: 4px 9px;
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 42px);
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 62px);
   }
 }
