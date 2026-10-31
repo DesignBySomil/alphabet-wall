@@ -1749,16 +1749,25 @@ let holdStartTime = 0;
 const HOLD_DURATION_MS = 950;
 
 function getHitLetterNode(clientX, clientY) {
+  // Screen-space nearest-bulb picking: forgiving for finger taps on small phones.
   const rect = renderer.domElement.getBoundingClientRect();
-  pointerNDC.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-  pointerNDC.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(pointerNDC, camera);
-  const hits = raycaster.intersectObjects(interactiveHitMeshes, false);
-  if (hits.length > 0) {
-    const idx = hits[0].object.userData.letterIndex;
-    return letterNodes[idx];
-  }
-  return null;
+  const maxDist = Math.max(22, Math.min(34, rect.width * 0.07));
+  const v = new THREE.Vector3();
+  let best = null;
+  let bestD = maxDist;
+  interactiveHitMeshes.forEach((m) => {
+    m.getWorldPosition(v);
+    v.project(camera);
+    if (v.z > 1) return;
+    const sx = rect.left + ((v.x + 1) / 2) * rect.width;
+    const sy = rect.top + ((1 - v.y) / 2) * rect.height;
+    const d = Math.hypot(sx - clientX, sy - clientY);
+    if (d < bestD) {
+      bestD = d;
+      best = m;
+    }
+  });
+  return best ? letterNodes[best.userData.letterIndex] : null;
 }
 
 renderer.domElement.addEventListener("pointerdown", (e) => {
