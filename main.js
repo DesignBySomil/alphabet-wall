@@ -2052,9 +2052,10 @@ function fitCameraToWall() {
   const vFovRad = THREE.MathUtils.degToRad(baseCameraFov);
   const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
 
-  // Required width to fit the full alphabet wall with breathing room on 320px screens
-  const requiredWidth = aspect < 0.75 ? 5.5 : 6.75;
-  const requiredHeight = 4.65;
+  // Fit the WHOLE diorama platform (floor included) with breathing room on load,
+  // so the room reads as a miniature on every viewport, not a cropped interior
+  const requiredWidth = aspect < 0.75 ? 6.4 : 9.2;
+  const requiredHeight = 5.5;
 
   const distH = requiredWidth / 2 / Math.tan(hFovRad / 2);
   const distV = requiredHeight / 2 / Math.tan(vFovRad / 2);
