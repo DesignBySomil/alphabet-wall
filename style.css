@@ -30,23 +30,32 @@ html.other-side {
   background-color: #020407;
 }
 
-/* Soft Bokeh Backdrop behind transparent WebGL canvas */
+/* Soft Bokeh Backdrop behind transparent WebGL canvas.
+   The element reaches far beyond the viewport and its gradient flattens to
+   the html background colour well inside its edges, so pinch-zooming out or
+   rubber-banding never reveals a mismatched strip around the scene. */
 #backdrop {
   position: fixed;
-  inset: 0;
+  left: 50vw;
+  top: 42vh;
+  width: 200vmax;
+  height: 200vmax;
+  transform: translate(-50%, -50%);
   z-index: 0;
-  background: radial-gradient(circle at 50% 42%, #24170f 0%, #110b07 58%, #060403 100%);
+  background: radial-gradient(circle at center, #24170f 0, #110b07 70vmin, #060403 120vmin);
   transition: filter 1.8s ease, background 1.8s ease;
   pointer-events: none;
   overflow: hidden;
 }
 
 body.other-side #backdrop {
-  background: radial-gradient(circle at 50% 42%, #0c1824 0%, #060b12 60%, #020407 100%);
+  background: radial-gradient(circle at center, #0c1824 0, #060b12 72vmin, #020407 120vmin);
 }
 
 .bokeh {
   position: absolute;
+  top: 50%;
+  left: 50%;
   border-radius: 50%;
   filter: blur(50px);
   opacity: 0.24;
@@ -57,24 +66,21 @@ body.other-side #backdrop {
   width: 320px;
   height: 320px;
   background: #ff9436;
-  top: 10%;
-  left: 16%;
+  transform: translate(-34vw, -32vh);
 }
 
 .b2 {
   width: 260px;
   height: 260px;
   background: #ffcb6b;
-  bottom: 14%;
-  right: 12%;
+  transform: translate(calc(38vw - 260px), calc(44vh - 260px));
 }
 
 .b3 {
   width: 220px;
   height: 220px;
   background: #d95326;
-  top: 50%;
-  left: 58%;
+  transform: translate(8vw, 8vh);
 }
 
 body.other-side .b1 {
