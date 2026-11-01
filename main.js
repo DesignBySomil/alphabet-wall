@@ -632,7 +632,7 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.enablePan = false;
 controls.minDistance = 4.4;
-controls.maxDistance = 15.5;
+controls.maxDistance = 24; // allow full-platform framing on narrow portrait screens
 controls.minPolarAngle = Math.PI * 0.16;
 controls.maxPolarAngle = Math.PI * 0.475; // Never dips below the room floor
 controls.minAzimuthAngle = -Math.PI * 0.36; // Prevents clipping behind walls
@@ -2054,7 +2054,7 @@ function fitCameraToWall() {
 
   // Fit the WHOLE diorama platform (floor included) with breathing room on load,
   // so the room reads as a miniature on every viewport, not a cropped interior
-  const requiredWidth = aspect < 0.75 ? 8.3 : 12.0;
+  const requiredWidth = aspect < 0.75 ? 9.0 : 12.0;
   const requiredHeight = 7.2;
 
   const distH = requiredWidth / 2 / Math.tan(hFovRad / 2);
