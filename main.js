@@ -2054,8 +2054,8 @@ function fitCameraToWall() {
 
   // Fit the WHOLE diorama platform (floor included) with breathing room on load,
   // so the room reads as a miniature on every viewport, not a cropped interior
-  const requiredWidth = aspect < 0.75 ? 6.4 : 9.2;
-  const requiredHeight = 5.5;
+  const requiredWidth = aspect < 0.75 ? 8.3 : 12.0;
+  const requiredHeight = 7.2;
 
   const distH = requiredWidth / 2 / Math.tan(hFovRad / 2);
   const distV = requiredHeight / 2 / Math.tan(vFovRad / 2);
