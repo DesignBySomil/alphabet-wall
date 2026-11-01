@@ -2091,27 +2091,6 @@ function handleResize() {
   }
 }
 
-// Keep the fixed bokeh backdrop covering the visual viewport even when the page
-// is pinch-zoomed out (mobile browsers can ignore user-scalable=no), so no bare
-// background strips appear around it. The html background matches the backdrop
-// gradient's edge colour in each mode as a fallback for older engines.
-(function fitBackdropToVisualViewport() {
-  const backdropEl = document.getElementById("backdrop");
-  const vv = window.visualViewport;
-  if (!backdropEl || !vv) return;
-  backdropEl.style.right = "auto";
-  backdropEl.style.bottom = "auto";
-  function fitBackdrop() {
-    backdropEl.style.left = -vv.offsetLeft + "px";
-    backdropEl.style.top = -vv.offsetTop + "px";
-    backdropEl.style.width = vv.width + "px";
-    backdropEl.style.height = vv.height + "px";
-  }
-  vv.addEventListener("resize", fitBackdrop);
-  vv.addEventListener("scroll", fitBackdrop);
-  fitBackdrop();
-})();
-
 window.addEventListener("resize", handleResize);
 handleResize();
 
