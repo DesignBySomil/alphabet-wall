@@ -412,3 +412,5 @@ body.other-side .hud-btn-alt {
 }
 
 /* deploy nudge: retrigger Pages build */
+
+.hud-btn.is-muted { opacity: 0.45; }
