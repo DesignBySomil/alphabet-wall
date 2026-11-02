@@ -11,6 +11,9 @@ class DioramaAudio {
     this.droneGain = null;
     this.droneOsc1 = null;
     this.droneOsc2 = null;
+    this.master = null;
+    this.muted = false;
+    try { this.muted = localStorage.getItem("tvmini-muted") === "1"; } catch (e) {}
 
     // Warm nostalgic pentatonic frequencies for A-Z
     this.scaleBase = [
@@ -25,6 +28,9 @@ class DioramaAudio {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return null;
       this.ctx = new AudioCtx();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.muted ? 0 : 1;
+      this.master.connect(this.ctx.destination);
       this.setupDrone();
     }
     if (this.ctx.state === "suspended") {
@@ -53,10 +59,19 @@ class DioramaAudio {
     this.droneOsc1.connect(filter);
     this.droneOsc2.connect(filter);
     filter.connect(this.droneGain);
-    this.droneGain.connect(this.ctx.destination);
+    this.droneGain.connect(this.master);
 
     this.droneOsc1.start();
     this.droneOsc2.start();
+  }
+
+  setMuted(m) {
+    this.muted = m;
+    try { localStorage.setItem("tvmini-muted", m ? "1" : "0"); } catch (e) {}
+    if (!m) this.ensureContext();
+    if (this.master && this.ctx) {
+      this.master.gain.setTargetAtTime(m ? 0 : 1, this.ctx.currentTime, 0.15);
+    }
   }
 
   playBulbChime(letterIndex, turningOn = true, upsideDownFactor = 0) {
@@ -97,7 +112,7 @@ class DioramaAudio {
     osc2.connect(subGain);
     subGain.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.master);
 
     osc1.start(now);
     osc2.start(now);
@@ -124,7 +139,7 @@ class DioramaAudio {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.21);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.master);
       osc.start(now + offset);
       osc.stop(now + offset + 0.24);
     });
@@ -153,7 +168,7 @@ class DioramaAudio {
 
       osc.connect(filter);
       filter.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this.master);
       osc.start(now);
       osc.stop(now + 1.7);
     } else {
@@ -170,7 +185,7 @@ class DioramaAudio {
         gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.05 + 1.35);
 
         osc.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(this.master);
         osc.start(now + i * 0.05);
         osc.stop(now + i * 0.05 + 1.4);
       });
@@ -601,6 +616,8 @@ const readoutTextEl = document.getElementById("readout-text");
 const hintBannerEl = document.getElementById("hint-banner");
 const btnDemo = document.getElementById("btn-demo");
 const btnDimension = document.getElementById("btn-dimension");
+const btnMute = document.getElementById("btn-mute");
+const muteIcon = document.getElementById("mute-icon");
 const dimensionLabel = document.getElementById("dimension-label");
 const dimensionIcon = document.getElementById("dimension-icon");
 const holdIndicator = document.getElementById("hold-indicator");
@@ -1689,6 +1706,21 @@ function toggleOtherSide(forceState = null) {
 
 btnDemo.addEventListener("click", () => playDemoPhrase("RUN"));
 btnDimension.addEventListener("click", () => toggleOtherSide());
+
+function paintMuteButton() {
+  if (!btnMute) return;
+  muteIcon.textContent = audio.muted ? "\u2715" : "\u266a";
+  btnMute.setAttribute("aria-pressed", audio.muted ? "true" : "false");
+  btnMute.classList.toggle("is-muted", audio.muted);
+  btnMute.title = audio.muted ? "Turn sound on" : "Mute sound";
+}
+if (btnMute) {
+  paintMuteButton();
+  btnMute.addEventListener("click", () => {
+    audio.setMuted(!audio.muted);
+    paintMuteButton();
+  });
+}
 
 window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
